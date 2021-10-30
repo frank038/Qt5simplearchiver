@@ -14,4 +14,4 @@ Features:
 - should work with all archive files managed by 7z
 - opens almost all passworded files supported by 7z (at the moment with 7z archive type don't): asks for a passwor.
 
-Limitations: only one item at time can be extracted. Drag and drop only works with my file manager SimpleFM because both use a custom mimetype.
+Limitations: only one item at time can be extracted. Only files can be extracted, no folders and their content. Drag and drop only works with my file manager SimpleFM because both use a custom mimetype.

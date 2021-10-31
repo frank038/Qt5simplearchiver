@@ -15,4 +15,4 @@ Features:
 - opens the passworded files supported by 7z: asks for a password
 - double click to open the file with the default viewer, if any.
 
-Limitations: only one item at time can be extracted. Drag and drop only works with my file manager SimpleFM because both use a custom mimetype. By default the files are extracted without any parent folders; folders are extract with parent folders if the case. Files to open will be extracted in the /tmp directory.
+Limitations: only one item at time can be extracted. Drag and drop only works with my file manager SimpleFM because both use a custom mimetype. By default the files are extracted without any parent folders; folders are extract with parent folders if the case. The files to open will be extracted in the /tmp directory.

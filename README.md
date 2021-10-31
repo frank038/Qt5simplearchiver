@@ -1,7 +1,7 @@
 # Qt5simplearchiver
 A simple archive manager.
 
-Version 0.1 (testing - development)
+Version 0.2 (testing - development)
 
 No warranty at all. Free to use and modify.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.1
+# version 0.2
 
 from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel
 import sys
@@ -10,8 +10,8 @@ import os, shutil
 from xdg.BaseDirectory import *
 from xdg.DesktopEntry import *
 
-# extract with full path (x) or the item without parent folders (e)
-EXTRACTION_TYPE="e"
+# # extract with full path (x) or the item without parent folders (e)
+# EXTRACTION_TYPE="e"
 # usually 7z - 7za or compatible
 EXTRACTOR="7z"
 
@@ -67,9 +67,17 @@ class TreeWidget(QTreeWidget):
 
 
     def startDrag(self, supportedActions):
-        # no folder
-        if self.currentItem().data(0,1).name() == "folder":
-            return
+        #
+        item_type = None
+        if self.currentItem().data(1,0) and int(self.currentItem().data(1,0)) >= 0:
+            EXTRACTION_TYPE = "e"
+            item_type = "file"
+        else:
+            EXTRACTION_TYPE = "x"
+            item_type = "folder"
+        # # no folder
+        # if self.currentItem().data(0,1).name() == "folder":
+            # return
         drag = QDrag(self)
         item_path_temp = self.get_path(self.currentItem())
         item_path = "/".join(item_path_temp)
@@ -77,10 +85,12 @@ class TreeWidget(QTreeWidget):
         mimedata = QMimeData()
         # 
         data = QByteArray()
-        data.append(bytes("{0}\n{1}\n{2}".format(EXTRACTION_TYPE, self.archive_path, item_path), encoding="utf-8"))
+        data.append(bytes("{0}\n{1}\n{2}\n{3}".format(EXTRACTION_TYPE, self.archive_path, item_type, item_path), encoding="utf-8"))
         mimedata.setData(self.customMimeType, data)
         #
         drag.setMimeData(mimedata)
+        pixmap = self.currentItem().data(0,1).pixmap(48, 48)
+        drag.setPixmap(pixmap)
         drag.exec_(supportedActions)
     
     
@@ -152,25 +162,25 @@ class Window(QWidget):
     def createHeader(self):
         gboxLayout = QGridLayout()
         self.vbox.addLayout(gboxLayout)
-        # extract the item without folders
-        extract_btn = QPushButton()
-        extract_btn.setIcon(QIcon("icons/extract-item.svg"))
-        extract_btn.setIconSize(QSize(48, 48))
-        extract_btn.setToolTip("Extract without full path.")
-        extract_btn.clicked.connect(lambda:self.fextract_btn("e"))
-        gboxLayout.addWidget(extract_btn,0,0,1,1)
+        # # extract the item without folders
+        # extract_btn = QPushButton()
+        # extract_btn.setIcon(QIcon("icons/extract-item.svg"))
+        # extract_btn.setIconSize(QSize(48, 48))
+        # extract_btn.setToolTip("Extract without full path.")
+        # extract_btn.clicked.connect(lambda:self.fextract_btn("e"))
+        # gboxLayout.addWidget(extract_btn,0,0,1,1)
         # extract the item with folders
         extract_btn_f = QPushButton()
         extract_btn_f.setIcon(QIcon("icons/extract-item-full-path.svg"))
         extract_btn_f.setIconSize(QSize(48, 48))
-        extract_btn_f.setToolTip("Extract with full path.")
+        extract_btn_f.setToolTip("Extract the item.")
         extract_btn_f.clicked.connect(lambda:self.fextract_btn("x"))
         gboxLayout.addWidget(extract_btn_f,0,1,1,1)
         # extract the archive
         extract_archive = QPushButton()
         extract_archive.setIcon(QIcon("icons/full-archive.svg"))
         extract_archive.setIconSize(QSize(48, 48))
-        extract_archive.setToolTip("Extract the archive.")
+        extract_archive.setToolTip("Extract the whole archive.")
         extract_archive.clicked.connect(lambda:self.fextract_btn("a"))
         gboxLayout.addWidget(extract_archive,0,2,1,1)
         # extract in the folder
@@ -191,7 +201,7 @@ class Window(QWidget):
     
     def createLayout(self):
         self.treeWidget = TreeWidget(os.path.realpath(self.path))
-        self.treeWidget.installEventFilter(self)
+        # self.treeWidget.installEventFilter(self)
         self.vbox.addWidget(self.treeWidget)
         self.treeWidget.setColumnCount(3)
         self.treeWidget.doubleClicked.connect(self.getRow2)
@@ -208,12 +218,12 @@ class Window(QWidget):
         self.bottom_label.setToolTip(self.pdest)
         self.bobox.addWidget(self.bottom_label)
         #
-        self.type_label = QLabel()
-        self.bobox.addWidget(self.type_label)
-        if EXTRACTION_TYPE == "e":
-            self.type_label.setText(" - without full path")
-        else:
-            self.type_label.setText(" - with full path")
+        # self.type_label = QLabel()
+        # self.bobox.addWidget(self.type_label)
+        # if EXTRACTION_TYPE == "e":
+            # self.type_label.setText(" - without full path")
+        # else:
+            # self.type_label.setText(" - with full path")
         #
         if self.hasPassWord == 2:
             self.pwd_label = QLabel("")
@@ -222,20 +232,20 @@ class Window(QWidget):
             self.bobox.addWidget(self.pwd_label)
     
     
-    # use the Ctrl key to shift from e to x or viceversa
-    def eventFilter(self, obj, event):
-        if isinstance(obj, QTreeWidget):
-            if event.type() == QEvent.KeyPress:
-                if event.key() == Qt.Key_Control:
-                    global EXTRACTION_TYPE
-                    if EXTRACTION_TYPE == "e":
-                        EXTRACTION_TYPE = "x"
-                        self.type_label.setText(" - with full path")
-                    else:
-                        EXTRACTION_TYPE = "e"
-                        self.type_label.setText(" - without full path")
-        #
-        return QObject.event(obj, event)
+    # # use the Ctrl key to shift from e to x or viceversa
+    # def eventFilter(self, obj, event):
+        # if isinstance(obj, QTreeWidget):
+            # if event.type() == QEvent.KeyPress:
+                # if event.key() == Qt.Key_Control:
+                    # global EXTRACTION_TYPE
+                    # if EXTRACTION_TYPE == "e":
+                        # EXTRACTION_TYPE = "x"
+                        # self.type_label.setText(" - with full path")
+                    # else:
+                        # EXTRACTION_TYPE = "e"
+                        # self.type_label.setText(" - without full path")
+        # #
+        # return QObject.event(obj, event)
     
     
     # remove duplicated paths

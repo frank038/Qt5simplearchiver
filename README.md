@@ -1,7 +1,7 @@
 # Qt5simplearchiver
 A simple archive manager.
 
-Version 0.2 (testing - development)
+Version 0.3 (testing - development)
 
 No warranty at all. Free to use and modify.
 
@@ -15,4 +15,4 @@ Features:
 - opens the passworded files supported by 7z: asks for a password
 - double click to open the file with the default viewer, if any.
 
-Limitations: only one item at time can be extracted. Drag and drop only works with my file manager SimpleFM because both use a custom mimetype. By default the files are extracted without any parent folders; folders are extract with parent folders if the case. The files to open will be extracted in the /tmp directory.
+Limitations: Drag and drop only works with my file manager SimpleFM and my Qt5desktop program because of a custom mimetype. By default the files are extracted without any parent folders; folders are extract with parent folders if the case. The files to open will be extracted in the /tmp directory.

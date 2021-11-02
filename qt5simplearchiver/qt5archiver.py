@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.2
+# version 0.3
 
 from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel
 import sys
@@ -10,8 +10,6 @@ import os, shutil
 from xdg.BaseDirectory import *
 from xdg.DesktopEntry import *
 
-# # extract with full path (x) or the item without parent folders (e)
-# EXTRACTION_TYPE="e"
 # usually 7z - 7za or compatible
 EXTRACTOR="7z"
 
@@ -61,35 +59,37 @@ class TreeWidget(QTreeWidget):
     def __init__(self, archive_path):
         QTreeWidget.__init__(self)
         self.archive_path = archive_path
-        self.setSelectionMode(self.SingleSelection)
+        self.setSelectionMode(self.ExtendedSelection)
         self.customMimeType = "application/x-customqt5archiver"
         self.setDragEnabled(True)
 
 
     def startDrag(self, supportedActions):
+        # EXTRACTION_TYPE: e is the mode for files - x for folders
+        # archive name - extraction mode - item type - item name
+        drag_data = "{}".format(self.archive_path)
+        for iitem in self.selectedItems():
+            item_path_temp = self.get_path(iitem)
+            item_path = "/".join(item_path_temp)
+            if iitem.data(3,0) == "file":
+                EXTRACTION_TYPE = "e"
+                item_type = "file"
+                drag_data += "\n{}\n{}\n{}".format(EXTRACTION_TYPE, item_type, item_path)
+            else:
+                EXTRACTION_TYPE = "x"
+                item_type = "folder"
+                drag_data += "\n{}\n{}\n{}".format(EXTRACTION_TYPE, item_type, item_path)
         #
-        item_type = None
-        if self.currentItem().data(1,0) and int(self.currentItem().data(1,0)) >= 0:
-            EXTRACTION_TYPE = "e"
-            item_type = "file"
-        else:
-            EXTRACTION_TYPE = "x"
-            item_type = "folder"
-        # # no folder
-        # if self.currentItem().data(0,1).name() == "folder":
-            # return
         drag = QDrag(self)
-        item_path_temp = self.get_path(self.currentItem())
-        item_path = "/".join(item_path_temp)
         #
         mimedata = QMimeData()
         # 
         data = QByteArray()
-        data.append(bytes("{0}\n{1}\n{2}\n{3}".format(EXTRACTION_TYPE, self.archive_path, item_type, item_path), encoding="utf-8"))
+        data.append(bytes(drag_data, encoding="utf-8"))
         mimedata.setData(self.customMimeType, data)
         #
         drag.setMimeData(mimedata)
-        pixmap = self.currentItem().data(0,1).pixmap(48, 48)
+        pixmap = QPixmap("icons/extraction.png").scaled(48, 48, Qt.KeepAspectRatio)
         drag.setPixmap(pixmap)
         drag.exec_(supportedActions)
     
@@ -108,6 +108,7 @@ class TreeWidget(QTreeWidget):
 class Window(QWidget):
     def __init__(self, path, hasPassWord):
         super(Window, self).__init__()
+        self.setWindowIcon(QIcon("icons/qt5archiver.svg"))
         self.path = path
         # 2 yes - 1 no
         self.hasPassWord = hasPassWord
@@ -162,13 +163,6 @@ class Window(QWidget):
     def createHeader(self):
         gboxLayout = QGridLayout()
         self.vbox.addLayout(gboxLayout)
-        # # extract the item without folders
-        # extract_btn = QPushButton()
-        # extract_btn.setIcon(QIcon("icons/extract-item.svg"))
-        # extract_btn.setIconSize(QSize(48, 48))
-        # extract_btn.setToolTip("Extract without full path.")
-        # extract_btn.clicked.connect(lambda:self.fextract_btn("e"))
-        # gboxLayout.addWidget(extract_btn,0,0,1,1)
         # extract the item with folders
         extract_btn_f = QPushButton()
         extract_btn_f.setIcon(QIcon("icons/extract-item-full-path.svg"))
@@ -201,12 +195,12 @@ class Window(QWidget):
     
     def createLayout(self):
         self.treeWidget = TreeWidget(os.path.realpath(self.path))
-        # self.treeWidget.installEventFilter(self)
         self.vbox.addWidget(self.treeWidget)
-        self.treeWidget.setColumnCount(3)
+        self.treeWidget.setColumnCount(4)
+        self.treeWidget.setColumnHidden(3, True)
         self.treeWidget.doubleClicked.connect(self.getRow2)
         self.treeWidget.clicked.connect(self.getRow)
-        self.treeWidget.setHeaderLabels(["Name", "Size", "Modification"])
+        self.treeWidget.setHeaderLabels(["Name", "Size", "Modification", "Type"])
         self.treeWidget.header().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.treeWidget.setIconSize(QSize(48, 48))
         self.folder_icon = QIcon.fromTheme("folder", QIcon("icons/folder.svg"))
@@ -218,34 +212,11 @@ class Window(QWidget):
         self.bottom_label.setToolTip(self.pdest)
         self.bobox.addWidget(self.bottom_label)
         #
-        # self.type_label = QLabel()
-        # self.bobox.addWidget(self.type_label)
-        # if EXTRACTION_TYPE == "e":
-            # self.type_label.setText(" - without full path")
-        # else:
-            # self.type_label.setText(" - with full path")
-        #
         if self.hasPassWord == 2:
             self.pwd_label = QLabel("")
             self.pwd_label.setPixmap(QPixmap("icons/passworded.svg"))
             self.pwd_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
             self.bobox.addWidget(self.pwd_label)
-    
-    
-    # # use the Ctrl key to shift from e to x or viceversa
-    # def eventFilter(self, obj, event):
-        # if isinstance(obj, QTreeWidget):
-            # if event.type() == QEvent.KeyPress:
-                # if event.key() == Qt.Key_Control:
-                    # global EXTRACTION_TYPE
-                    # if EXTRACTION_TYPE == "e":
-                        # EXTRACTION_TYPE = "x"
-                        # self.type_label.setText(" - with full path")
-                    # else:
-                        # EXTRACTION_TYPE = "e"
-                        # self.type_label.setText(" - without full path")
-        # #
-        # return QObject.event(obj, event)
     
     
     # remove duplicated paths
@@ -301,17 +272,17 @@ class Window(QWidget):
                 # 
                 if item[1] == "-": 
                     if iitem != splitted_path[-1]:
-                        top1 = QTreeWidgetItem([iitem,None,None])
+                        top1 = QTreeWidgetItem([iitem,None,None,"folder"])
                         top1.setIcon(0, self.folder_icon)
                         self.treeWidget.addTopLevelItem(top1)
                         top_level_items_data.append([iitem, top1])
                     else:
-                        top1 = QTreeWidgetItem([iitem,item[2],item[3]])
+                        top1 = QTreeWidgetItem([iitem,item[2],item[3],"file"])
                         top1.setIcon(0, self.file_icon)
                         self.treeWidget.addTopLevelItem(top1)
                         top_level_items_data.append([iitem, top1])
                 elif item[1] == "+":
-                    top1 = QTreeWidgetItem([iitem,None,None])
+                    top1 = QTreeWidgetItem([iitem,None,None,"folder"])
                     top1.setIcon(0, self.folder_icon)
                     self.treeWidget.addTopLevelItem(top1)
                     top_level_items_data.append([iitem, top1])
@@ -324,12 +295,12 @@ class Window(QWidget):
                         trovato = 1
                 if trovato == 0:
                     if iitem != splitted_path[-1]:
-                        top1 = QTreeWidgetItem([iitem,None,None])
+                        top1 = QTreeWidgetItem([iitem,None,None,"folder"])
                         top1.setIcon(0, self.folder_icon)
                         self.treeWidget.addTopLevelItem(top1)
                         top_level_items_data.append([iitem, top1])
                     else:
-                        top1 = QTreeWidgetItem([iitem,item[2],item[3]])
+                        top1 = QTreeWidgetItem([iitem,item[2],item[3],"file"])
                         top1.setIcon(0, self.file_icon)
                         self.treeWidget.addTopLevelItem(top1)
                         top_level_items_data.append([iitem, top1])
@@ -356,20 +327,23 @@ class Window(QWidget):
                 #
                 if item[1] == "-":
                     if not eitem == splitted_path[-1]:
-                        child = QTreeWidgetItem([eitem,None,None])
+                        child = QTreeWidgetItem([eitem,None,None,"folder"])
                         child.setIcon(0, self.folder_icon)
                         node.addChild(child)
                         node = child
                     else:
-                        child = QTreeWidgetItem([eitem,item[2],item[3]])
+                        child = QTreeWidgetItem([eitem,item[2],item[3],"file"])
                         child.setIcon(0, self.file_icon)
                         node.addChild(child)
                         node = child
                 elif item[1] == "+":
-                    child = QTreeWidgetItem([eitem,None,None])
+                    child = QTreeWidgetItem([eitem,None,None,"folder"])
                     child.setIcon(0, self.folder_icon)
                     node.addChild(child)
                     node = child
+        #
+        self.treeWidget.setSortingEnabled(True)
+        self.treeWidget.sortByColumn(3, Qt.DescendingOrder)
     
     # select the destination folder
     def folder_btnf(self):

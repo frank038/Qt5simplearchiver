@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.3
+# version 0.3.5
 
 from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel
 import sys
@@ -163,14 +163,14 @@ class Window(QWidget):
     def createHeader(self):
         gboxLayout = QGridLayout()
         self.vbox.addLayout(gboxLayout)
-        # extract the item with folders
+        # extract the item
         extract_btn_f = QPushButton()
         extract_btn_f.setIcon(QIcon("icons/extract-item-full-path.svg"))
         extract_btn_f.setIconSize(QSize(48, 48))
         extract_btn_f.setToolTip("Extract the item.")
         extract_btn_f.clicked.connect(lambda:self.fextract_btn("x"))
         gboxLayout.addWidget(extract_btn_f,0,1,1,1)
-        # extract the archive
+        # extract the whole archive
         extract_archive = QPushButton()
         extract_archive.setIcon(QIcon("icons/full-archive.svg"))
         extract_archive.setIconSize(QSize(48, 48))
@@ -221,23 +221,33 @@ class Window(QWidget):
     
     # remove duplicated paths
     def on_itemList(self, zoutput):
-        itemList_temp = zoutput.split("\n")
-        # path - folder - size - modified
+        itemList_temp = zoutput.split("\n\n")
+        # path - type - size - modified
         itemList = []
         item_temp = []
-        for item in itemList_temp:
-            if item == "":
-                continue
-            if item[0:6] == "Path =":
-                item_temp.append(item[7:])
-            elif item[0:8] == "Folder =":
-                item_temp.append(item[9:])
-            elif item[0:6] == "Size =":
-                item_temp.append(item[7:])
-            elif item[0:10] == "Modified =":
-                item_temp.append(item[11:])
-                itemList.append(item_temp)
-                item_temp = []
+        num_cd = 0
+        for item_f_temp in itemList_temp:
+            item_f = item_f_temp.split("\n")
+            for item in item_f:
+                if item[0:6] == "Path =":
+                    item_temp.insert(0, item[7:])
+                    num_cd += 1
+                elif item[0:12] == "Attributes =":
+                    if item[13:15] == "D_":
+                        item_temp.insert(1, "+")
+                    else:
+                        item_temp.insert(1, "-")
+                    num_cd += 1
+                elif item[0:6] == "Size =":
+                    item_temp.insert(2, item[7:])
+                    num_cd += 1
+                elif item[0:10] == "Modified =":
+                    item_temp.insert(3, item[11:])
+                    num_cd += 1
+                if num_cd == 4:
+                    itemList.append(item_temp)
+                    item_temp = []
+                    num_cd = 0
         #
         itemListA = itemList[:]
         for item in itemListA:
@@ -348,9 +358,10 @@ class Window(QWidget):
     # select the destination folder
     def folder_btnf(self):
         folderpath = QFileDialog.getExistingDirectory(self, 'Select Folder')
-        self.pdest = folderpath
-        self.bottom_label.setText("Extract to: {}".format(os.path.basename(self.pdest)))
-        self.bottom_label.setToolTip(self.pdest)
+        if folderpath:
+            self.pdest = folderpath
+            self.bottom_label.setText("Extract to: {}".format(os.path.basename(self.pdest)))
+            self.bottom_label.setToolTip(self.pdest)
     
     
     # without folders (e) - with folders (x) - extract all (a)

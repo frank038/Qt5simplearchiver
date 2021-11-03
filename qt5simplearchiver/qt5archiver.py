@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.3.5
+# version 0.3.6
 
 from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel
 import sys
@@ -224,30 +224,37 @@ class Window(QWidget):
         itemList_temp = zoutput.split("\n\n")
         # path - type - size - modified
         itemList = []
-        item_temp = []
-        num_cd = 0
+        #
+        ipath = ""
+        iattr = ""
+        isize = ""
+        imodified = ""
         for item_f_temp in itemList_temp:
             item_f = item_f_temp.split("\n")
             for item in item_f:
                 if item[0:6] == "Path =":
-                    item_temp.insert(0, item[7:])
-                    num_cd += 1
+                    ipath = item[7:]
                 elif item[0:12] == "Attributes =":
-                    if item[13:15] == "D_":
-                        item_temp.insert(1, "+")
-                    else:
-                        item_temp.insert(1, "-")
-                    num_cd += 1
+                    if iattr == "":
+                        if item[13:15] == "D_":
+                            iattr = "+"
+                        else:
+                            iattr = "-"
+                elif item[0:8] == "Folder =":
+                    if iattr == "":
+                        iattr = item[9:10]
                 elif item[0:6] == "Size =":
-                    item_temp.insert(2, item[7:])
-                    num_cd += 1
+                    isize = item[7:]
                 elif item[0:10] == "Modified =":
-                    item_temp.insert(3, item[11:])
-                    num_cd += 1
-                if num_cd == 4:
+                    imodified = item[11:]
+                if ipath and iattr and isize and imodified:
+                    item_temp = [ipath, iattr, isize, imodified]
                     itemList.append(item_temp)
-                    item_temp = []
-                    num_cd = 0
+                    ipath = ""
+                    iattr = ""
+                    isize = ""
+                    imodified = ""
+                    break
         #
         itemListA = itemList[:]
         for item in itemListA:

@@ -8,7 +8,7 @@ No warranty at all. Free to use and modify.
 Requirements:
 - pyqt5
 - python3-xdg
-- 7z
+- 7z (p7zip-full is suggested; p7zip-rar is required for rar archives)
 
 Features:
 - should work with all archive files managed by 7z

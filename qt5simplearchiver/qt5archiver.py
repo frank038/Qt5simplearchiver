@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.4.0
+# version 0.4.1
 
 from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel
 import sys
@@ -269,6 +269,7 @@ class Window(QWidget):
             else:
                 if line[0:10] == "----------":
                     istart = 1
+                    # 
                     fields = line.split(" ")
                     for ff in fields:
                         temp_list.append(len(ff) or 1)
@@ -282,7 +283,7 @@ class Window(QWidget):
     
     # fill the treewidget
     def populateTree(self):
-        byte_output=subprocess.check_output('7z l {}'.format(self.path), shell=True)
+        byte_output=subprocess.check_output('7z l "{}"'.format(self.path), shell=True)
         str_output = byte_output.decode('utf-8')
         llines = str_output.splitlines()
         files = self.getItems(llines)

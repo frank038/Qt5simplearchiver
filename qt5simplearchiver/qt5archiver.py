@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.4.1
+# version 0.4.2
 
 from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel
 import sys
@@ -126,6 +126,7 @@ class Window(QWidget):
         # main box
         self.vbox = QVBoxLayout()
         self.setLayout(self.vbox)
+        #
         self.createHeader()
         self.createLayout()
         self.populateTree()
@@ -208,15 +209,16 @@ class Window(QWidget):
         # 
         self.bobox = QHBoxLayout()
         self.vbox.addLayout(self.bobox)
-        self.bottom_label = QLabel("Extract to: {}".format(os.path.basename(self.pdest)))
-        self.bottom_label.setToolTip(self.pdest)
+        self.bottom_label = QLabel()
         self.bobox.addWidget(self.bottom_label)
+        self.bottom_label.setText("Opening: {}".format(os.path.basename(self.pdest)))
         #
+        self.pwd_label = QLabel("")
+        self.pwd_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
+        self.bobox.addWidget(self.pwd_label)
         if self.hasPassWord == 2:
-            self.pwd_label = QLabel("")
             self.pwd_label.setPixmap(QPixmap("icons/passworded.svg"))
-            self.pwd_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
-            self.bobox.addWidget(self.pwd_label)
+            self.pwd_label.setToolTip("Password protected.")
     
     
     # remove duplicated paths
@@ -283,7 +285,12 @@ class Window(QWidget):
     
     # fill the treewidget
     def populateTree(self):
-        byte_output=subprocess.check_output('7z l "{}"'.format(self.path), shell=True)
+        try:
+            byte_output=subprocess.check_output('7z l "{}"'.format(self.path), shell=True)
+        except:
+            self.bottom_label.setText("Error.")
+            return
+        #
         str_output = byte_output.decode('utf-8')
         llines = str_output.splitlines()
         files = self.getItems(llines)
@@ -373,6 +380,10 @@ class Window(QWidget):
         #
         self.treeWidget.setSortingEnabled(True)
         self.treeWidget.sortByColumn(3, Qt.DescendingOrder)
+        # set the label
+        self.bottom_label.setText("Extract to: {}".format(os.path.basename(self.pdest)))
+        self.bottom_label.setToolTip(self.pdest)
+    
     
     # select the destination folder
     def folder_btnf(self):
@@ -591,7 +602,7 @@ class getDefaultApp():
                             if os.path.exists(applicationPath):
                                 return applicationPath
                             else:
-                                dlg = message("Error:\n{} cannot be found".format(applicationPath), self.window)
+                                dlg = message("Error:\n{} cannot be found".format(applicationPath), "O")
                                 dlg.exec_()
                         else:
                             return "None"
@@ -651,7 +662,7 @@ if __name__ == '__main__':
                 return 2
             else:
                 return 1
-    
+    #
     app = QApplication(sys.argv)
     # 
     if len(sys.argv) == 1:
@@ -660,8 +671,15 @@ if __name__ == '__main__':
         sys.exit()
     path = sys.argv[1]
     if not os.path.exists(path):
-        dlg = message("The archive {} doesn't exist.".format(os.path.basename(path)), "O")
+        dlg = message("The archive\n {} \ndoesn't exist.".format(os.path.basename(path)), "O")
         dlg.exec_()
         sys.exit()
-    window = Window(path, test_archive(path))
+    #
+    ret = test_archive(path)
+    if ret == 0:
+        dlg = message("Cannot open the archive: {}.".format(os.path.basename(path)), "O")
+        dlg.exec_()
+        sys.exit()
+    #
+    window = Window(path, ret)
     sys.exit(app.exec_())

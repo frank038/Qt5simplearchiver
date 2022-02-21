@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-# version 0.4.2
+# version 0.4.3
 
 from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel
 import sys
 from PyQt5.QtGui import QIcon, QDrag, QPixmap
-from PyQt5.QtCore import QObject, QEvent, Qt, QUrl, QMimeData, QSize, QMimeDatabase, QByteArray, QDataStream, QIODevice
+from PyQt5.QtCore import QTimer, QObject, QEvent, Qt, QUrl, QMimeData, QSize, QMimeDatabase, QByteArray, QDataStream, QIODevice
 import subprocess
 import os, shutil
 from xdg.BaseDirectory import *
@@ -129,10 +129,21 @@ class Window(QWidget):
         #
         self.createHeader()
         self.createLayout()
-        self.populateTree()
-        self.show()
+        # self.populateTree()
+        #
+        self.installEventFilter(self)
+        #
+        # self.show()
         #
         self.selected_item = None
+    
+    
+    #
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Show:
+            QTimer.singleShot(1000, self.populateTree)
+            return True
+        return super(Window, self).eventFilter(obj, event)
     
     
     #
@@ -211,34 +222,35 @@ class Window(QWidget):
         self.vbox.addLayout(self.bobox)
         self.bottom_label = QLabel()
         self.bobox.addWidget(self.bottom_label)
-        self.bottom_label.setText("Opening: {}".format(os.path.basename(self.pdest)))
+        self.bottom_label.setText("Opening: {}".format(os.path.basename(self.path)))
         #
         self.pwd_label = QLabel("")
         self.pwd_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
         self.bobox.addWidget(self.pwd_label)
-        if self.hasPassWord == 2:
-            self.pwd_label.setPixmap(QPixmap("icons/passworded.svg"))
-            self.pwd_label.setToolTip("Password protected.")
+        # if self.hasPassWord == 2:
+            # self.pwd_label.setPixmap(QPixmap("icons/passworded.svg"))
+            # self.pwd_label.setToolTip("Password protected.")
     
     
     # remove duplicated paths
     def on_itemList(self, llist):
-        # path - type - size - modified
-        itemList = llist[:]
-        for item in llist:
-            ipath = item[0]
-            ppath = os.path.dirname(ipath)
-            # 
-            while ppath:
-                for iitem in itemList:
-                    if iitem[0] == ppath:
-                        try:
-                            itemList.remove(iitem)
-                        except:
-                            pass
-                ppath = os.path.dirname(ppath)
-        #
-        return itemList
+        return llist
+        # # path - type - size - modified
+        # itemList = llist[:]
+        # for item in llist:
+            # ipath = item[0]
+            # ppath = os.path.dirname(ipath)
+            # # 
+            # while ppath:
+                # for iitem in itemList:
+                    # if iitem[0] == ppath:
+                        # try:
+                            # itemList.remove(iitem)
+                        # except:
+                            # pass
+                # ppath = os.path.dirname(ppath)
+        # #
+        # return itemList
     
     
     def getItems(self, lines):
@@ -300,7 +312,10 @@ class Window(QWidget):
         ### ADD THE TOP LEVEL ITEMS
         top_level_items_data = []
         #
+        # itm = 0
         for item in itemList:
+            # itm += 1
+            # self.pwd_label.setText("Items: {}".format(itm))
             splitted_path = item[0].split(os.sep)
             # no toplevels at all
             if not top_level_items_data:
@@ -383,6 +398,11 @@ class Window(QWidget):
         # set the label
         self.bottom_label.setText("Extract to: {}".format(os.path.basename(self.pdest)))
         self.bottom_label.setToolTip(self.pdest)
+        #
+        # self.pwd_label.setText("")
+        if self.hasPassWord == 2:
+            self.pwd_label.setPixmap(QPixmap("icons/passworded.svg"))
+            self.pwd_label.setToolTip("Password protected.")
     
     
     # select the destination folder
@@ -682,4 +702,5 @@ if __name__ == '__main__':
         sys.exit()
     #
     window = Window(path, ret)
+    window.show()
     sys.exit(app.exec_())

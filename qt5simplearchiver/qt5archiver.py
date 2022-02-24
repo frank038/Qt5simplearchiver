@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.5.0
+# version 0.5.1
 
 from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
@@ -315,7 +315,10 @@ class Window(QWidget):
                         item_type = "-"
                     item_mtime_temp = item_entry.mtime
                     item_mtime = datetime.utcfromtimestamp(item_mtime_temp).strftime('%Y-%m-%d %H:%M:%S')
-                    itemList.append([item_entry.name, item_type, str(item_entry.size), item_mtime])
+                    item_name = item_entry.name
+                    if item_type == "+" and item_name[-1] == "/":
+                        item_name = item_name[:-1]
+                    itemList.append([item_name, item_type, str(item_entry.size), item_mtime])
         else:
             try:
                 byte_output=subprocess.check_output('7z l "{}"'.format(self.path), shell=True)

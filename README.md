@@ -9,7 +9,7 @@ Requirements:
 - pyqt5
 - python3-xdg
 - 7z (p7zip-full is suggested; p7zip-rar is required for rar archives; it is used for extracions and for reading the archive content - read below)
-- python3-libarchive-c (for reading the archive files; libarchive can be disabled by changing the line 14 of the main file from USE_LIBARCHIVE = 1 to USE_LIBARCHIVE = 0 ; In this case 7z will be used to read the archive files).
+- python3-libarchive-c (for reading the archive files; libarchive can be disabled by changing the line 14 of the main file from USE_LIBARCHIVE = 1 to USE_LIBARCHIVE = 0 ; In this case 7z will be used for reading the archive files).
 
 Features:
 - should work with all archive files managed by libarchive (or 7z)

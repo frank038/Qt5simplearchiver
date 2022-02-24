@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.5.1
+# version 0.5.2
 
 from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
@@ -307,18 +307,25 @@ class Window(QWidget):
         if USE_LIBARCHIVE == 1:
             # ['name', '+' or '-', 'size', 'date']
             itemList = []
-            with libarchive.file_reader(self.path) as file_archive:
-                for item_entry in file_archive:
-                    if item_entry.isdir:
-                        item_type = "+"
-                    else:
-                        item_type = "-"
-                    item_mtime_temp = item_entry.mtime
-                    item_mtime = datetime.utcfromtimestamp(item_mtime_temp).strftime('%Y-%m-%d %H:%M:%S')
-                    item_name = item_entry.name
-                    if item_type == "+" and item_name[-1] == "/":
-                        item_name = item_name[:-1]
-                    itemList.append([item_name, item_type, str(item_entry.size), item_mtime])
+            try:
+                with libarchive.file_reader(self.path) as file_archive:
+                    for item_entry in file_archive:
+                        if item_entry.isdir:
+                            item_type = "+"
+                        else:
+                            item_type = "-"
+                        item_mtime_temp = item_entry.mtime
+                        item_mtime = datetime.utcfromtimestamp(item_mtime_temp).strftime('%Y-%m-%d %H:%M:%S')
+                        item_name = item_entry.name
+                        if item_type == "+" and item_name[-1] == "/":
+                            item_name = item_name[:-1]
+                        itemList.append([item_name, item_type, str(item_entry.size), item_mtime])
+            except Exception as E:
+                MyDialog("Error", str(E), self)
+                # set the label
+                self.bottom_label.setText("Error: {}".format(os.path.basename(self.path)))
+                self.bottom_label.setToolTip(self.pdest)
+                return
         else:
             try:
                 byte_output=subprocess.check_output('7z l "{}"'.format(self.path), shell=True)

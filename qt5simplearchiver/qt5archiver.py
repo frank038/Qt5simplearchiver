@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# version 0.4.3
+# version 0.4.4
 
-from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel
+from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
 from PyQt5.QtGui import QIcon, QDrag, QPixmap
 from PyQt5.QtCore import QTimer, QObject, QEvent, Qt, QUrl, QMimeData, QSize, QMimeDatabase, QByteArray, QDataStream, QIODevice
@@ -117,7 +117,8 @@ class Window(QWidget):
         self.resize(int(WINW), int(WINH))
         if WINM == "True":
             self.showMaximized()
-        #
+        # an error occour while reading the archive
+        self.open_with_error = 0
         # destination folder
         if os.path.dirname(self.path):
             self.pdest = os.path.dirname(self.path)
@@ -305,7 +306,12 @@ class Window(QWidget):
         #
         str_output = byte_output.decode('utf-8')
         llines = str_output.splitlines()
-        files = self.getItems(llines)
+        try:
+            files = self.getItems(llines)
+        except Exception as E:
+            MyDialog("Error", str(E)+"\nor unsupported archive.", self)
+            self.open_with_error = 1
+            return
         #
         itemList = self.on_itemList(files)
         root_index = self.treeWidget.rootIndex()
@@ -416,6 +422,8 @@ class Window(QWidget):
     
     # without folders (e) - with folders (x) - extract all (a)
     def fextract_btn(self, etype):
+        if self.open_with_error == 1:
+            return
         ret = -5
         #
         if self.hasPassWord == 2:
@@ -663,6 +671,39 @@ class message(QDialog):
 
     def close(self):
         self.close()
+
+
+# simple dialog message
+# type - message - parent
+class MyDialog(QMessageBox):
+    def __init__(self, *args):
+        super(MyDialog, self).__init__(args[-1])
+        if args[0] == "Info":
+            self.setIcon(QMessageBox.Information)
+            self.setStandardButtons(QMessageBox.Ok)
+        elif args[0] == "Error":
+            self.setIcon(QMessageBox.Critical)
+            self.setStandardButtons(QMessageBox.Ok)
+        elif args[0] == "Question":
+            self.setIcon(QMessageBox.Question)
+            self.setStandardButtons(QMessageBox.Ok|QMessageBox.Cancel)
+        self.setWindowIcon(QIcon("icons/file-manager-red.svg"))
+        self.setWindowTitle(args[0])
+        DIALOGWIDTH = 600
+        self.resize(DIALOGWIDTH,300)
+        self.setText(args[1])
+        retval = self.exec_()
+    
+    def event(self, e):
+        result = QMessageBox.event(self, e)
+        #
+        self.setMinimumHeight(0)
+        self.setMaximumHeight(16777215)
+        self.setMinimumWidth(0)
+        self.setMaximumWidth(16777215)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # 
+        return result
 
 #######################
 if __name__ == '__main__':

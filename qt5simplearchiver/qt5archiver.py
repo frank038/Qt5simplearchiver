@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.4.4
+# version 0.5.0
 
 from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
@@ -9,6 +9,12 @@ import subprocess
 import os, shutil
 from xdg.BaseDirectory import *
 from xdg.DesktopEntry import *
+
+# use libarchive for reading: 0 use 7z - 1 use libarchive
+USE_LIBARCHIVE = 1
+if USE_LIBARCHIVE:
+    import libarchive
+    from datetime import datetime
 
 # usually 7z - 7za or compatible
 EXTRACTOR="7z"
@@ -298,22 +304,36 @@ class Window(QWidget):
     
     # fill the treewidget
     def populateTree(self):
-        try:
-            byte_output=subprocess.check_output('7z l "{}"'.format(self.path), shell=True)
-        except:
-            self.bottom_label.setText("Error.")
-            return
-        #
-        str_output = byte_output.decode('utf-8')
-        llines = str_output.splitlines()
-        try:
-            files = self.getItems(llines)
-        except Exception as E:
-            MyDialog("Error", str(E)+"\nor unsupported archive.", self)
-            self.open_with_error = 1
-            return
-        #
-        itemList = self.on_itemList(files)
+        if USE_LIBARCHIVE == 1:
+            # ['name', '+' or '-', 'size', 'date']
+            itemList = []
+            with libarchive.file_reader(self.path) as file_archive:
+                for item_entry in file_archive:
+                    if item_entry.isdir:
+                        item_type = "+"
+                    else:
+                        item_type = "-"
+                    item_mtime_temp = item_entry.mtime
+                    item_mtime = datetime.utcfromtimestamp(item_mtime_temp).strftime('%Y-%m-%d %H:%M:%S')
+                    itemList.append([item_entry.name, item_type, str(item_entry.size), item_mtime])
+        else:
+            try:
+                byte_output=subprocess.check_output('7z l "{}"'.format(self.path), shell=True)
+            except:
+                self.bottom_label.setText("Error.")
+                return
+            #
+            str_output = byte_output.decode('utf-8')
+            llines = str_output.splitlines()
+            try:
+                files = self.getItems(llines)
+            except Exception as E:
+                MyDialog("Error", str(E)+"\nor unsupported archive.", self)
+                self.open_with_error = 1
+                return
+            #
+            itemList = self.on_itemList(files)
+        ####
         root_index = self.treeWidget.rootIndex()
         ### ADD THE TOP LEVEL ITEMS
         top_level_items_data = []

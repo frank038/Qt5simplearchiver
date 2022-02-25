@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.5.2
+# version 0.6.0
 
 from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
@@ -239,9 +239,8 @@ class Window(QWidget):
             # self.pwd_label.setToolTip("Password protected.")
     
     
-    # remove duplicated paths
-    def on_itemList(self, llist):
-        return llist
+    # # remove duplicated paths
+    # def on_itemList(self, llist):
         # # path - type - size - modified
         # itemList = llist[:]
         # for item in llist:
@@ -304,9 +303,9 @@ class Window(QWidget):
     
     # fill the treewidget
     def populateTree(self):
+        itemList = []
         if USE_LIBARCHIVE == 1:
             # ['name', '+' or '-', 'size', 'date']
-            itemList = []
             try:
                 with libarchive.file_reader(self.path) as file_archive:
                     for item_entry in file_archive:
@@ -336,106 +335,70 @@ class Window(QWidget):
             str_output = byte_output.decode('utf-8')
             llines = str_output.splitlines()
             try:
-                files = self.getItems(llines)
+                itemList = self.getItems(llines)
             except Exception as E:
                 MyDialog("Error", str(E)+"\nor unsupported archive.", self)
                 self.open_with_error = 1
                 return
             #
-            itemList = self.on_itemList(files)
+            # itemList = self.on_itemList(itemList)
+        # 
         ####
         root_index = self.treeWidget.rootIndex()
-        ### ADD THE TOP LEVEL ITEMS
-        top_level_items_data = []
-        #
-        # itm = 0
+        ### ADD THE ITEMS
         for item in itemList:
-            # itm += 1
-            # self.pwd_label.setText("Items: {}".format(itm))
             splitted_path = item[0].split(os.sep)
-            # no toplevels at all
-            if not top_level_items_data:
-                iitem = splitted_path[0]
-                # 
-                if item[1] == "-": 
-                    if iitem != splitted_path[-1]:
-                        top1 = QTreeWidgetItem([iitem,None,None,"folder"])
-                        top1.setIcon(0, self.folder_icon)
-                        self.treeWidget.addTopLevelItem(top1)
-                        top_level_items_data.append([iitem, top1])
-                    else:
-                        top1 = QTreeWidgetItem([iitem,item[2],item[3],"file"])
-                        top1.setIcon(0, self.file_icon)
-                        self.treeWidget.addTopLevelItem(top1)
-                        top_level_items_data.append([iitem, top1])
-                elif item[1] == "+":
+            ## top level
+            iitem = splitted_path[0]
+            tnode = self.treeWidget.findItems(iitem, Qt.MatchExactly)
+            # 
+            if not tnode:
+                if len(splitted_path) > 1:
                     top1 = QTreeWidgetItem([iitem,None,None,"folder"])
                     top1.setIcon(0, self.folder_icon)
                     self.treeWidget.addTopLevelItem(top1)
-                    top_level_items_data.append([iitem, top1])
-            else:
-                iitem = splitted_path[0]
-                trovato = 0
-                # if not iitem in top_level_items_data:
-                for el in top_level_items_data:
-                    if iitem == el[0]:
-                        trovato = 1
-                if trovato == 0:
-                    if iitem != splitted_path[-1]:
+                else:
+                    if item[1] == "+":
                         top1 = QTreeWidgetItem([iitem,None,None,"folder"])
                         top1.setIcon(0, self.folder_icon)
                         self.treeWidget.addTopLevelItem(top1)
-                        top_level_items_data.append([iitem, top1])
                     else:
                         top1 = QTreeWidgetItem([iitem,item[2],item[3],"file"])
                         top1.setIcon(0, self.file_icon)
                         self.treeWidget.addTopLevelItem(top1)
-                        top_level_items_data.append([iitem, top1])
-            # children
-            node = None
-            # node_root = None
-            iitem = splitted_path[0]
-            for el in top_level_items_data:
-                if iitem == el[0]:
-                    node = el[1]
-            #
-            for eitem in splitted_path[1:]:
-                is_found = 0
-                # 
-                if node:
-                    for i in range(node.childCount()):
-                        if node.child(i).text(0) == eitem:
-                            node = node.child(i)
-                            is_found = 1
-                            break
-                #
-                if is_found:
-                    continue
-                #
-                if item[1] == "-":
-                    if not eitem == splitted_path[-1]:
-                        child = QTreeWidgetItem([eitem,None,None,"folder"])
+            else:
+                if len(splitted_path) > 1:
+                    node = tnode[0]
+                    #
+                    for j in range(1,len(splitted_path)-1):
+                        child_node = None
+                        for i in range(node.childCount()):
+                            if node.child(i).text(0) == splitted_path[j]:
+                                child_node = 1
+                                node = node.child(i)
+                                break
+                        #
+                        if child_node == None:
+                            child = QTreeWidgetItem([splitted_path[j],None,None,"folder"])
+                            child.setIcon(0, self.folder_icon)
+                            node.addChild(child)
+                            node = child
+                    # the last index
+                    litem = splitted_path[-1]
+                    if item[1] == "+":
+                        child = QTreeWidgetItem([litem,None,None,"folder"])
                         child.setIcon(0, self.folder_icon)
-                        node.addChild(child)
-                        node = child
                     else:
-                        child = QTreeWidgetItem([eitem,item[2],item[3],"file"])
+                        child = QTreeWidgetItem([litem,item[2],item[3],"file"])
                         child.setIcon(0, self.file_icon)
-                        node.addChild(child)
-                        node = child
-                elif item[1] == "+":
-                    child = QTreeWidgetItem([eitem,None,None,"folder"])
-                    child.setIcon(0, self.folder_icon)
                     node.addChild(child)
-                    node = child
-        #
+        ############
         self.treeWidget.setSortingEnabled(True)
         self.treeWidget.sortByColumn(3, Qt.DescendingOrder)
         # set the label
         self.bottom_label.setText("Extract to: {}".format(os.path.basename(self.pdest)))
         self.bottom_label.setToolTip(self.pdest)
         #
-        # self.pwd_label.setText("")
         if self.hasPassWord == 2:
             self.pwd_label.setPixmap(QPixmap("icons/passworded.svg"))
             self.pwd_label.setToolTip("Password protected.")

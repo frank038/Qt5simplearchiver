@@ -1,7 +1,7 @@
 # Qt5simplearchiver
 A simple archive manager.
 
-Version 0.5.2 (testing - development)
+Version 0.6.0
 
 No warranty at all. Free to use and modify.
 
@@ -12,7 +12,7 @@ Requirements:
 - python3-libarchive-c (for reading the archive files; libarchive can be disabled by changing the line 14 of the main file from USE_LIBARCHIVE = 1 to USE_LIBARCHIVE = 0 ; In this case 7z will be used for reading the archive files).
 
 Features:
-- should work with all archive files managed by libarchive (or 7z)
+- should work with all archive files managed by both libarchive and 7z (for extraction 7z is used);
 - opens the passworded archives supported by 7z: asks for a password
 - double click to open the file with the default viewer, if any
 - Control key for multiple selections.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.6.0
+# version 0.6.1
 
 from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
@@ -314,7 +314,7 @@ class Window(QWidget):
                         else:
                             item_type = "-"
                         item_mtime_temp = item_entry.mtime
-                        item_mtime = datetime.utcfromtimestamp(item_mtime_temp).strftime('%Y-%m-%d %H:%M:%S')
+                        item_mtime = datetime.fromtimestamp(item_mtime_temp).strftime('%Y-%m-%d %H:%M:%S')
                         item_name = item_entry.name
                         if item_type == "+" and item_name[-1] == "/":
                             item_name = item_name[:-1]
@@ -350,7 +350,18 @@ class Window(QWidget):
             splitted_path = item[0].split(os.sep)
             ## top level
             iitem = splitted_path[0]
+            #######
             tnode = self.treeWidget.findItems(iitem, Qt.MatchExactly)
+            # 
+            # tnode = None
+            # top_num = self.treeWidget.topLevelItemCount()
+            # if top_num:
+                # for tl in range(top_num):
+                    # node = self.treeWidget.topLevelItem(tl)
+                    # if node.text(0) == iitem:
+                        # tnode.append(node)
+                        # break
+            #######
             # 
             if not tnode:
                 if len(splitted_path) > 1:

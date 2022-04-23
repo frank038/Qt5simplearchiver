@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.6.3
+# version 0.6.4
 
 from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
@@ -518,6 +518,10 @@ class Window(QWidget):
             dlg.exec_()
         #
         self.selected_item = None
+        #
+        if self.passWord and self.hasPassWord == 2:
+            self.pwd_label.setPixmap(QPixmap("icons/passwordedn.svg"))
+            self.pwd_label.setToolTip("Password protected. Decrypted.")
     
     
     # get the path of the selected item
@@ -534,7 +538,7 @@ class Window(QWidget):
     def getRow(self, item):
         ipath = self.get_path(item)
         self.selected_item = item
-        print("537", self.path)
+        
     
     # double click
     def getRow2(self, item):
@@ -564,6 +568,11 @@ class Window(QWidget):
             elif defApp == "None":
                 dlg = message("Info:\nno application found for\n{}".format(file_name), "O")
                 dlg.exec_()
+            #
+            if self.passWord and self.hasPassWord == 2:
+                self.pwd_label.setPixmap(QPixmap("icons/passwordedn.svg"))
+                self.pwd_label.setToolTip("Password protected. Decrypted.")
+                
 
 
 

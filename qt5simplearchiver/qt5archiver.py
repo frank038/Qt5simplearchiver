@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.6.2
+# version 0.6.3
 
 from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
@@ -496,12 +496,12 @@ class Window(QWidget):
                 dlg = message("Overwrite?", "OC")
                 retd = dlg.exec_()
                 if retd:
-                    ret = os.system("{0} {1} '-i!{2}' {3} -p{4} -y -o{5} 1>/dev/null".format(EXTRACTOR, etype, ipath, self.path, self.passWord, self.pdest))
+                    ret = os.system("{0} {1} '-i!{2}' '{3}' -p'{4}' -y -o'{5}' 1>/dev/null".format(EXTRACTOR, etype, ipath, self.path, self.passWord, self.pdest))
             else:
-                ret = os.system("{0} {1} '-i!{2}' {3} -p{4} -y -o{5} 1>/dev/null".format(EXTRACTOR, etype, ipath, self.path, self.passWord, self.pdest))
+                ret = os.system("{0} {1} '-i!{2}' '{3}' -p'{4}' -y -o'{5}' 1>/dev/null".format(EXTRACTOR, etype, ipath, self.path, self.passWord, self.pdest))
         elif etype == "a":
             # 0 with no errors but without verifying
-            ret = os.system("{0} x {1} -y -o{2} 1>/dev/null".format(EXTRACTOR, self.path, self.pdest))
+            ret = os.system("{0} x '{1}' -y -o'{2}' 1>/dev/null".format(EXTRACTOR, self.path, self.pdest))
         ### exit codes
         # 0 No error
         # 1 Warning (Non fatal error(s)). For example, one or more files were locked by some other application, so they were not compressed.
@@ -534,7 +534,7 @@ class Window(QWidget):
     def getRow(self, item):
         ipath = self.get_path(item)
         self.selected_item = item
-
+        print("537", self.path)
     
     # double click
     def getRow2(self, item):
@@ -550,7 +550,7 @@ class Window(QWidget):
                     self.passWord = passWord(self.path).arpass
                     if not self.passWord:
                         return
-            ret = os.system("{0} {1} '-i!{2}' {3} -p{4} -y -o{5}".format(EXTRACTOR, "e", ipath, self.path, self.passWord, "/tmp"))
+            ret = os.system("{0} {1} '-i!{2}' '{3}' -p'{4}' -y -o'{5}'".format(EXTRACTOR, "e", ipath, self.path, self.passWord, "/tmp"))
             # get the default application and open it
             defApp = getDefaultApp(ipath).defaultApplication()
             file_name = self.selected_item.data(0)
@@ -620,7 +620,7 @@ class passWord(QDialog):
     def getpswd(self):
         passwd = self.le1.text()
         try:
-            ptest = subprocess.check_output('{} t -p{} -bso0 -- "{}"'.format(EXTRACTOR, passwd, self.path), shell=True)
+            ptest = subprocess.check_output('{} t -p"{}" -bso0 -- "{}"'.format(EXTRACTOR, passwd, self.path), shell=True)
             if ptest.decode() == "":
                 self.arpass = passwd
                 self.close()

@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-# version 0.6.4
+# version 0.7
 
-from PyQt5.QtWidgets import qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
+from PyQt5.QtWidgets import QDesktopWidget, qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
 from PyQt5.QtGui import QIcon, QDrag, QPixmap
-from PyQt5.QtCore import QTimer, QObject, QEvent, Qt, QUrl, QMimeData, QSize, QMimeDatabase, QByteArray, QDataStream, QIODevice
+from PyQt5.QtCore import QFileSystemWatcher, QTimer, QObject, QEvent, Qt, QUrl, QMimeData, QSize, QMimeDatabase, QByteArray, QDataStream, QIODevice
 import subprocess
-import os, shutil
+import os, shutil, time
 from xdg.BaseDirectory import *
 from xdg.DesktopEntry import *
+
+CURRENT_PROG_DIR = os.getcwd()
 
 # use libarchive for reading: 0 use 7z - 1 use libarchive
 USE_LIBARCHIVE = 0
@@ -59,48 +61,56 @@ except:
     fm = firstMessage("Error", "The file winsize.cfg cannot be read.")
     sys.exit(app.exec_())
 
+def create_where_to_extract():
+    try:
+        ifile = open("where_to_extract", "w")
+        ifile.close()
+    except:
+        app = QApplication(sys.argv)
+        fm = firstMessage("Error", "The file where_to_extract cannot be written.")
+        sys.exit(app.exec_())
+create_where_to_extract()
 
+# 
+DRAG_SUCCESS = 0
 class TreeWidget(QTreeWidget):
     
-    def __init__(self, archive_path):
+    def __init__(self, archive_path, parent):
         QTreeWidget.__init__(self)
+        self.parent = parent
         self.archive_path = archive_path
         self.setSelectionMode(self.ExtendedSelection)
         self.customMimeType = "application/x-customqt5archiver"
         self.setDragEnabled(True)
-
-
+    
+    
     def startDrag(self, supportedActions):
-        # EXTRACTION_TYPE: e is the mode for files - x for folders
-        # archive name - extraction mode - item type - item name
-        drag_data = "{}".format(self.archive_path)
-        for iitem in self.selectedItems():
-            item_path_temp = self.get_path(iitem)
-            item_path = "/".join(item_path_temp)
-            if iitem.data(3,0) == "file":
-                EXTRACTION_TYPE = "e"
-                item_type = "file"
-                drag_data += "\n{}\n{}\n{}".format(EXTRACTION_TYPE, item_type, item_path)
-            else:
-                EXTRACTION_TYPE = "x"
-                item_type = "folder"
-                drag_data += "\n{}\n{}\n{}".format(EXTRACTION_TYPE, item_type, item_path)
-        #
+        # reset
+        self.parent.in_extraction = 0
+        # send the working directory of this program - needed for where_to_extract
+        drag_data = CURRENT_PROG_DIR
         drag = QDrag(self)
-        #
         mimedata = QMimeData()
-        # 
         data = QByteArray()
         data.append(bytes(drag_data, encoding="utf-8"))
         mimedata.setData(self.customMimeType, data)
-        #
         drag.setMimeData(mimedata)
         pixmap = QPixmap("icons/extraction.png").scaled(48, 48, Qt.KeepAspectRatio)
         drag.setPixmap(pixmap)
-        drag.exec_(supportedActions)
+        # drag.exec_(supportedActions)
+        # 1 success - 0 failure
+        ret = drag.exec_(Qt.CopyAction)
+        # # if ret == 0:
+            # # drag.deleteLater()
+            # # mimedata.deleteLater()
+        #
+        if ret:
+            global DRAG_SUCCESS
+            DRAG_SUCCESS = ret
+        return
+        
     
-    
-    # get the full path of the selected item
+    # get the full archive path of the selected item
     def get_path(self, item):
         ipath = []
         if item:
@@ -110,6 +120,55 @@ class TreeWidget(QTreeWidget):
         #
         return ipath
     
+# 
+class arcExtract():
+    def __init__(self, ePath, full_list, etype, edest, epassword):
+        # the path of the archive
+        self.ePath = ePath
+        # list of the items in the archive to extract - full path
+        self.elist = full_list
+        # type of extraction: x and e single item - a full archive
+        self.etype = etype
+        # destination - full path
+        self.edest = edest
+        # the password
+        self.password = epassword
+        #
+        self.fextract()
+        
+    def fextract(self):
+        ret = -5
+        #
+        if self.etype in ["e", "x"]:
+            retd = 1
+            for iitem in self.elist:
+                # if os.path.isdir(os.path.join(self.edest, iitem)):
+                    # continue
+                if os.path.exists(os.path.join(self.edest, iitem)):
+                    dlg = message("Some items already exist.\nOverwrite?", "OC")
+                    retd = dlg.exec_()
+                    break
+            if retd:
+                for iitem in self.elist:
+                    ret = os.system("{0} {1} '-i!{2}' '{3}' -p'{4}' -y -o'{5}' 1>/dev/null".format(EXTRACTOR, self.etype, iitem, self.ePath, self.password, self.edest))
+        elif self.etype == "a":
+            # 0 with no errors but without verifying
+            ret = os.system("{0} x '{1}' -p'{2}' -y -o'{3}' 1>/dev/null".format(EXTRACTOR, self.ePath, self.password, self.edest))
+        ### exit codes
+        # 0 No error
+        # 1 Warning (Non fatal error(s)). For example, one or more files were locked by some other application, so they were not compressed.
+        # 2 Fatal error
+        # 7 Command line error
+        # 8 Not enough memory for operation
+        # 255 User stopped the process
+        if ret == 0:
+            # check it the base folder exists
+            dlg = message("Extracted.", "O")
+            retd = dlg.exec_()
+        elif ret != -5:
+            dlg = message("Error:\n{}".format(ret), "O")
+            dlg.exec_()
+   
 
 class Window(QWidget):
     def __init__(self, path, hasPassWord):
@@ -118,7 +177,7 @@ class Window(QWidget):
         self.path = path
         # 2 yes - 1 no
         self.hasPassWord = hasPassWord
-        self.passWord = ""
+        self.password = ""
         self.setWindowTitle("qt5archiver - {}".format(os.path.basename(self.path)))
         self.resize(int(WINW), int(WINH))
         if WINM == "True":
@@ -141,17 +200,38 @@ class Window(QWidget):
         self.installEventFilter(self)
         #
         # self.show()
+        # extration type: x with folders - e without folders
+        self. etype = "e"
         #
         self.selected_item = None
-    
-    
+        #
+        self.extraction_dest = None
+        self.in_extraction = 0
+        # check for changes in the trash directories
+        fPath = [os.path.join(CURRENT_PROG_DIR,"where_to_extract")]
+        self.fileSystemWatcher = QFileSystemWatcher(fPath)
+        self.fileSystemWatcher.fileChanged.connect(self.checkDest)
+            
+    def checkDest(self, nfile):
+        if self.in_extraction:
+            return
+        #
+        if os.path.exists(nfile):
+            self.in_extraction = 1
+            # self.fileSystemWatcher.fileChanged.disconnect(self.checkDest)
+            with open(os.path.join(CURRENT_PROG_DIR, "where_to_extract")) as efile:
+                self.extraction_dest = efile.readline().strip()
+            #
+            self.fextract_btn()
+            #
+            # self.fileSystemWatcher.fileChanged.connect(self.checkDest)
+            
     #
     def eventFilter(self, obj, event):
         if event.type() == QEvent.Show:
             QTimer.singleShot(1000, self.populateTree)
             return True
         return super(Window, self).eventFilter(obj, event)
-    
     
     #
     def on_close(self):
@@ -182,38 +262,46 @@ class Window(QWidget):
     def createHeader(self):
         gboxLayout = QGridLayout()
         self.vbox.addLayout(gboxLayout)
+        # with subfolders or not
+        self.sub_btn_f = QPushButton()
+        self.sub_btn_f.setCheckable(True)
+        self.sub_btn_f.setIcon(QIcon("icons/alternate.svg"))
+        self.sub_btn_f.setIconSize(QSize(48, 48))
+        self.sub_btn_f.setToolTip("Extraction without folder(s).")
+        self.sub_btn_f.clicked.connect(self.fsub_btn)
+        gboxLayout.addWidget(self.sub_btn_f,0,1,1,1)
         # extract the item
         extract_btn_f = QPushButton()
         extract_btn_f.setIcon(QIcon("icons/extract-item-full-path.svg"))
         extract_btn_f.setIconSize(QSize(48, 48))
         extract_btn_f.setToolTip("Extract the item.")
-        extract_btn_f.clicked.connect(lambda:self.fextract_btn("x"))
-        gboxLayout.addWidget(extract_btn_f,0,1,1,1)
+        extract_btn_f.clicked.connect(self.fextract_btn)
+        gboxLayout.addWidget(extract_btn_f,0,2,1,1)
         # extract the whole archive
         extract_archive = QPushButton()
         extract_archive.setIcon(QIcon("icons/full-archive.svg"))
         extract_archive.setIconSize(QSize(48, 48))
         extract_archive.setToolTip("Extract the whole archive.")
         extract_archive.clicked.connect(lambda:self.fextract_btn("a"))
-        gboxLayout.addWidget(extract_archive,0,2,1,1)
+        gboxLayout.addWidget(extract_archive,0,3,1,1)
         # extract in the folder
         folder_btn = QPushButton()
         folder_btn.setIcon(QIcon("icons/choose-folder.svg"))
         folder_btn.setIconSize(QSize(48, 48))
         folder_btn.setToolTip("Choose where to extract.")
         folder_btn.clicked.connect(self.folder_btnf)
-        gboxLayout.addWidget(folder_btn,0,3,1,1)
+        gboxLayout.addWidget(folder_btn,0,4,1,1)
         # exit button
         exit_btn = QPushButton()
         exit_btn.setIcon(QIcon.fromTheme("exit"))
         exit_btn.setIconSize(QSize(48, 48))
         exit_btn.setToolTip("Close")
         exit_btn.clicked.connect(lambda:self.on_close())
-        gboxLayout.addWidget(exit_btn,0,4,1,1)
+        gboxLayout.addWidget(exit_btn,0,5,1,1)
     
     
     def createLayout(self):
-        self.treeWidget = TreeWidget(os.path.realpath(self.path))
+        self.treeWidget = TreeWidget(os.path.realpath(self.path), self)
         self.vbox.addWidget(self.treeWidget)
         self.treeWidget.setColumnCount(4)
         self.treeWidget.setColumnHidden(3, True)
@@ -234,10 +322,17 @@ class Window(QWidget):
         self.pwd_label = QLabel("")
         self.pwd_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
         self.bobox.addWidget(self.pwd_label)
-        # if self.hasPassWord == 2:
-            # self.pwd_label.setPixmap(QPixmap("icons/passworded.svg"))
-            # self.pwd_label.setToolTip("Password protected.")
     
+    
+    def fsub_btn(self):
+        if self.sender().isChecked():
+            # set etype x
+            self.etype = "x"
+            self.sender().setToolTip("Extraction with folder(s).")
+        else:
+            # set etype e
+            self.etype = "e"
+            self.sender().setToolTip("Extraction without folder(s).")
     
     # remove duplicated paths
     def on_itemList(self, llist):
@@ -469,60 +564,48 @@ class Window(QWidget):
             self.bottom_label.setToolTip(self.pdest)
     
     
-    # without folders (e) - with folders (x) - extract all (a)
-    def fextract_btn(self, etype):
+    # with folders (x) - without folders (e) - extract all (a)
+    def fextract_btn(self, eftype=None):
         if self.open_with_error == 1:
+            dlg = message("Error on opening.", "O")
+            dlg.exec_()
             return
-        ret = -5
+        #
+        if self.treeWidget.selectedIndexes() == []:
+            dlg = message("Nothing selected.", "O")
+            dlg.exec_()
+            return
+        #
+        if eftype:
+            self.etype = eftype
+            self.sub_btn_f.setChecked(False)
+        #
+        full_list = []
+        for i in range(0, len(self.treeWidget.selectedIndexes()), 3):
+            iit = self.treeWidget.selectedIndexes()[i]
+            full_list.append("/".join(self.get_path(iit)))
         #
         if self.hasPassWord == 2:
-            if not self.passWord:
-                self.passWord = passWord(self.path).arpass
-                if not self.passWord:
+            if not self.password:
+                self.password = passWord(self.path).arpass
+                if not self.password:
                     return
+                else:
+                    if self.password and self.hasPassWord == 2:
+                        self.pwd_label.setPixmap(QPixmap("icons/passwordedn.svg"))
+                        self.pwd_label.setToolTip("Password protected. Decrypted.")
+        # archive path - items to extract - type of extraction - where to extract - password
+        if self.extraction_dest:
+            arcExtract(self.path, full_list, self.etype, self.extraction_dest, self.password)
+        else:
+            # print("603", self.path, full_list, self.etype, self.pdest, self.password or "NONEP")
+            arcExtract(self.path, full_list, self.etype, self.pdest, self.password)
         #
-        if etype in ["e", "x"]:
-            if not self.selected_item:
-                return
-            ipathL = self.get_path(self.selected_item)
-            ipath = "/".join(ipathL)
-            if etype == "x":
-                fpath = ipath
-            elif etype == "e":
-                fpath = self.selected_item.data(0)
-            full_path = os.path.join(self.pdest, fpath)
-            # 
-            if os.path.exists(full_path):
-                dlg = message("Overwrite?", "OC")
-                retd = dlg.exec_()
-                if retd:
-                    ret = os.system("{0} {1} '-i!{2}' '{3}' -p'{4}' -y -o'{5}' 1>/dev/null".format(EXTRACTOR, etype, ipath, self.path, self.passWord, self.pdest))
-            else:
-                ret = os.system("{0} {1} '-i!{2}' '{3}' -p'{4}' -y -o'{5}' 1>/dev/null".format(EXTRACTOR, etype, ipath, self.path, self.passWord, self.pdest))
-        elif etype == "a":
-            # 0 with no errors but without verifying
-            ret = os.system("{0} x '{1}' -y -o'{2}' 1>/dev/null".format(EXTRACTOR, self.path, self.pdest))
-        ### exit codes
-        # 0 No error
-        # 1 Warning (Non fatal error(s)). For example, one or more files were locked by some other application, so they were not compressed.
-        # 2 Fatal error
-        # 7 Command line error
-        # 8 Not enough memory for operation
-        # 255 User stopped the process
-        if ret == 0:
-            # check it the base folder exists
-            dlg = message("Extracted.", "O")
-            retd = dlg.exec_()
-        elif ret != -5:
-            dlg = message("Error:\n{}".format(ret), "O")
-            dlg.exec_()
-        #
-        self.selected_item = None
-        #
-        if self.passWord and self.hasPassWord == 2:
-            self.pwd_label.setPixmap(QPixmap("icons/passwordedn.svg"))
-            self.pwd_label.setToolTip("Password protected. Decrypted.")
-    
+        # if self.in_extraction:
+            # # empty the file
+            # create_where_to_extract()
+            # time.sleep(1)
+            # self.in_extraction = 0
     
     # get the path of the selected item
     def get_path(self, item):
@@ -550,11 +633,11 @@ class Window(QWidget):
             ipathL = self.get_path(self.selected_item)
             ipath = "/".join(ipathL)
             if self.hasPassWord == 2:
-                if not self.passWord:
-                    self.passWord = passWord(self.path).arpass
-                    if not self.passWord:
+                if not self.password:
+                    self.passord = passWord(self.path).arpass
+                    if not self.password:
                         return
-            ret = os.system("{0} {1} '-i!{2}' '{3}' -p'{4}' -y -o'{5}'".format(EXTRACTOR, "e", ipath, self.path, self.passWord, "/tmp"))
+            ret = os.system("{0} {1} '-i!{2}' '{3}' -p'{4}' -y -o'{5}'".format(EXTRACTOR, "e", ipath, self.path, self.password, "/tmp"))
             # get the default application and open it
             defApp = getDefaultApp(ipath).defaultApplication()
             file_name = self.selected_item.data(0)
@@ -569,12 +652,10 @@ class Window(QWidget):
                 dlg = message("Info:\nno application found for\n{}".format(file_name), "O")
                 dlg.exec_()
             #
-            if self.passWord and self.hasPassWord == 2:
+            if self.password and self.hasPassWord == 2:
                 self.pwd_label.setPixmap(QPixmap("icons/passwordedn.svg"))
                 self.pwd_label.setToolTip("Password protected. Decrypted.")
                 
-
-
 
 # dialog for asking the archive password
 class passWord(QDialog):
@@ -788,7 +869,7 @@ if __name__ == '__main__':
         dlg = message("No archive to open.", "O")
         dlg.exec_()
         sys.exit()
-    path = sys.argv[1]
+    path = os.path.abspath(sys.argv[1])
     if not os.path.exists(path):
         dlg = message("The archive\n {} \ndoesn't exist.".format(os.path.basename(path)), "O")
         dlg.exec_()

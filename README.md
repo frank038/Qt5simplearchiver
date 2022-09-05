@@ -17,4 +17,4 @@ Features:
 - double click to open the file with the default viewer, if any
 - Control key for multiple selections.
 
-Limitations: Drag and drop only works with my file manager SimpleFM and my Qt5desktop program because of a custom mimetype. By default the files are extracted without any parent folders; a button in the toolbar can change this behaviour. The files to open/read will be extracted in the /tmp directory first. Folder cannot be opened by double clicking. Icons: only folder for folders and file for not folders.
+Limitations: This program must be launched followed by a filename. Drag and drop only works with my file manager SimpleFM and my Qt5desktop program because of a custom mimetype. By default the files are extracted without any parent folders; a button in the toolbar can change this behaviour. The files to open/read will be extracted in the /tmp directory first. Folder cannot be opened by double clicking. Icons: only folder for folders and file for not folders.

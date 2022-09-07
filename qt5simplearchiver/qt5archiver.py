@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.7
+# version 0.7.1
 
 from PyQt5.QtWidgets import QDesktopWidget, qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
@@ -50,7 +50,7 @@ WINW = 0
 WINH = 0
 WINM = ""
 try:
-    with open("winsize.cfg", "r") as ifile:
+    with open(os.path.join(CURRENT_PROG_DIR, "winsize.cfg"), "r") as ifile:
         fcontent = ifile.readline()
     aw, ah, am = fcontent.split(";")
     WINW = aw
@@ -63,7 +63,7 @@ except:
 
 def create_where_to_extract():
     try:
-        ifile = open("where_to_extract", "w")
+        ifile = open(os.path.join(CURRENT_PROG_DIR, "where_to_extract"), "w")
         ifile.close()
     except:
         app = QApplication(sys.argv)
@@ -107,6 +107,7 @@ class TreeWidget(QTreeWidget):
         if ret:
             global DRAG_SUCCESS
             DRAG_SUCCESS = ret
+        #
         return
         
     
@@ -207,7 +208,7 @@ class Window(QWidget):
         #
         self.extraction_dest = None
         self.in_extraction = 0
-        # check for changes in the trash directories
+        # check for changes in the directory
         fPath = [os.path.join(CURRENT_PROG_DIR,"where_to_extract")]
         self.fileSystemWatcher = QFileSystemWatcher(fPath)
         self.fileSystemWatcher.fileChanged.connect(self.checkDest)
@@ -218,9 +219,12 @@ class Window(QWidget):
         #
         if os.path.exists(nfile):
             self.in_extraction = 1
-            # self.fileSystemWatcher.fileChanged.disconnect(self.checkDest)
-            with open(os.path.join(CURRENT_PROG_DIR, "where_to_extract")) as efile:
+            # # self.fileSystemWatcher.fileChanged.disconnect(self.checkDest)
+            with open(os.path.join(CURRENT_PROG_DIR, "where_to_extract"), "r") as efile:
                 self.extraction_dest = efile.readline().strip()
+            if not self.extraction_dest:
+                MyDialog("Error", "Destination missed.", self)
+                return
             #
             self.fextract_btn()
             #
@@ -600,6 +604,16 @@ class Window(QWidget):
         else:
             # print("603", self.path, full_list, self.etype, self.pdest, self.password or "NONEP")
             arcExtract(self.path, full_list, self.etype, self.pdest, self.password)
+        #
+        self.extraction_dest = None
+        # reset
+        try:
+            ifile = open(os.path.join(CURRENT_PROG_DIR, "where_to_extract"), "w")
+            ifile.close()
+        except Exception as E:
+            dlg = message("Error:\n{}".format(str(E)), "O")
+            dlg.exec_()
+            return
         #
         # if self.in_extraction:
             # # empty the file

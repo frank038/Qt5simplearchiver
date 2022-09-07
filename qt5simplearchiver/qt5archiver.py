@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-# version 0.7.1
+# version 0.7.2
 
 from PyQt5.QtWidgets import QDesktopWidget, qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
 from PyQt5.QtGui import QIcon, QDrag, QPixmap
 from PyQt5.QtCore import QFileSystemWatcher, QTimer, QObject, QEvent, Qt, QUrl, QMimeData, QSize, QMimeDatabase, QByteArray, QDataStream, QIODevice
 import subprocess
-import os, shutil, time
+import os, shutil
 from xdg.BaseDirectory import *
 from xdg.DesktopEntry import *
 
@@ -176,6 +176,7 @@ class Window(QWidget):
         super(Window, self).__init__()
         self.setWindowIcon(QIcon("icons/qt5archiver.svg"))
         self.path = path
+        self.is_opened = 0
         # 2 yes - 1 no
         self.hasPassWord = hasPassWord
         self.password = ""
@@ -212,14 +213,14 @@ class Window(QWidget):
         fPath = [os.path.join(CURRENT_PROG_DIR,"where_to_extract")]
         self.fileSystemWatcher = QFileSystemWatcher(fPath)
         self.fileSystemWatcher.fileChanged.connect(self.checkDest)
-            
+    
+    
     def checkDest(self, nfile):
         if self.in_extraction:
             return
         #
         if os.path.exists(nfile):
             self.in_extraction = 1
-            # # self.fileSystemWatcher.fileChanged.disconnect(self.checkDest)
             with open(os.path.join(CURRENT_PROG_DIR, "where_to_extract"), "r") as efile:
                 self.extraction_dest = efile.readline().strip()
             if not self.extraction_dest:
@@ -227,14 +228,14 @@ class Window(QWidget):
                 return
             #
             self.fextract_btn()
-            #
-            # self.fileSystemWatcher.fileChanged.connect(self.checkDest)
-            
+        
     #
     def eventFilter(self, obj, event):
         if event.type() == QEvent.Show:
-            QTimer.singleShot(1000, self.populateTree)
-            return True
+            if not self.is_opened:
+                self.is_opened = 1
+                QTimer.singleShot(1000, self.populateTree)
+                return True
         return super(Window, self).eventFilter(obj, event)
     
     #
@@ -338,22 +339,23 @@ class Window(QWidget):
             self.etype = "e"
             self.sender().setToolTip("Extraction without folder(s).")
     
-    # remove duplicated paths
+    # remove duplicated paths - rar issue?
     def on_itemList(self, llist):
         # path - type - size - modified
         itemList = llist[:]
         for item in llist:
-            ipath = item[0]
-            ppath = os.path.dirname(ipath)
-            # 
-            while ppath:
-                for iitem in itemList:
-                    if iitem[0] == ppath:
-                        try:
-                            itemList.remove(iitem)
-                        except:
-                            pass
-                ppath = os.path.dirname(ppath)
+            if item[1] == '+':
+                ipath = item[0]
+                ppath = os.path.dirname(ipath)
+                # 
+                while ppath:
+                    for iitem in itemList:
+                        if iitem[0] == ppath:
+                            try:
+                                itemList.remove(iitem)
+                            except:
+                                pass
+                    ppath = os.path.dirname(ppath)
         #
         return itemList
     
@@ -614,12 +616,7 @@ class Window(QWidget):
             dlg = message("Error:\n{}".format(str(E)), "O")
             dlg.exec_()
             return
-        #
-        # if self.in_extraction:
-            # # empty the file
-            # create_where_to_extract()
-            # time.sleep(1)
-            # self.in_extraction = 0
+        
     
     # get the path of the selected item
     def get_path(self, item):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.8
+# version 0.8.1
 
 from PyQt5.QtWidgets import QDesktopWidget, qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
@@ -443,7 +443,6 @@ class Window(QWidget):
                 return
         #
         ##############################
-        tw = self.treeWidget
         for iitem in itemList:
             # node to fill
             cchh = None
@@ -463,10 +462,11 @@ class Window(QWidget):
                     if is_found:
                         continue
                     # add a toplevel
-                    child = QTreeWidgetItem([el, iitem[2], iitem[3]])
-                    if iitem[1] == "-":
+                    if iitem[1] == "-" and not ii < len_iitem - 1:
+                        child = QTreeWidgetItem([el, iitem[2], iitem[3]])
                         child.setIcon(0, self.file_icon)
                     else:
+                        child = QTreeWidgetItem([el, "", iitem[3]])
                         child.setIcon(0, self.folder_icon)
                     self.treeWidget.addTopLevelItem(child)
                     cchh = child
@@ -488,10 +488,11 @@ class Window(QWidget):
                         continue
                     #
                     # add a child
-                    child = QTreeWidgetItem([el, iitem[2], iitem[3]])
-                    if iitem[1] == "-":
+                    if iitem[1] == "-" and not ii < len_iitem - 1:
+                        child = QTreeWidgetItem([el, iitem[2], iitem[3]])
                         child.setIcon(0, self.file_icon)
                     else:
+                        child = QTreeWidgetItem([el, "", iitem[3]])
                         child.setIcon(0, self.folder_icon)
                     cchh.addChild(child)
                     cchh = child
@@ -647,7 +648,7 @@ class Window(QWidget):
             ipath = "/".join(ipathL)
             if self.hasPassWord == 2:
                 if not self.password:
-                    self.passord = passWord(self.path).arpass
+                    self.password = passWord(self.path).arpass
                     if not self.password:
                         return
             ret = os.system("{0} {1} '-i!{2}' '{3}' -p'{4}' -y -o'{5}'".format(EXTRACTOR, "e", ipath, self.path, self.password, "/tmp"))

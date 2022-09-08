@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.9
+# version 0.9.1
 
 from PyQt5.QtWidgets import QDesktopWidget, qApp, QStackedWidget, QListView, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
@@ -11,6 +11,7 @@ from xdg.BaseDirectory import *
 from xdg.DesktopEntry import *
 
 CURRENT_PROG_DIR = os.getcwd()
+NEW_ARCHIVE_TYPE = "zip"
 
 # use libarchive for reading: 0 use 7z - 1 use libarchive
 USE_LIBARCHIVE = 0
@@ -222,15 +223,16 @@ class Window(QWidget):
         if self.in_extraction:
             return
         #
-        if os.path.exists(nfile):
-            self.in_extraction = 1
-            with open(os.path.join(CURRENT_PROG_DIR, "where_to_extract"), "r") as efile:
-                self.extraction_dest = efile.readline().strip()
-            if not self.extraction_dest:
-                MyDialog("Error", "Destination missed.", self)
-                return
-            #
-            self.fextract_btn()
+        if DRAG_SUCCESS:
+            if os.path.exists(nfile):
+                self.in_extraction = 1
+                with open(os.path.join(CURRENT_PROG_DIR, "where_to_extract"), "r") as efile:
+                    self.extraction_dest = efile.readline().strip()
+                if not self.extraction_dest:
+                    MyDialog("Error", "Destination missed.", self)
+                    return
+                #
+                self.fextract_btn()
         
     #
     def eventFilter(self, obj, event):
@@ -282,7 +284,7 @@ class Window(QWidget):
         extract_btn_f = QPushButton()
         extract_btn_f.setIcon(QIcon("icons/extract-item-full-path.svg"))
         extract_btn_f.setIconSize(QSize(48, 48))
-        extract_btn_f.setToolTip("Extract the item.")
+        extract_btn_f.setToolTip("Extract the selected item(s).")
         extract_btn_f.clicked.connect(self.fextract_btn)
         gboxLayout.addWidget(extract_btn_f,0,2,1,1)
         # extract the whole archive
@@ -310,7 +312,7 @@ class Window(QWidget):
         del_btn = QPushButton()
         del_btn.setIcon(QIcon("icons/delete.png"))
         del_btn.setIconSize(QSize(48, 48))
-        del_btn.setToolTip("Delete the selected items.")
+        del_btn.setToolTip("Delete the selected item(s).")
         del_btn.clicked.connect(self.del_btnf)
         gboxLayout.addWidget(del_btn,0,6,1,1)
         # exit button
@@ -398,44 +400,61 @@ class Window(QWidget):
             return -2
     
     def add_btnf(self):
-        temp_dest = os.path.join(os.path.expanduser("~"), "ar_dest.zip")
-        # remove the temp archive HOME/ar_dest
+        arch_name = "ar_dest"
+        full_arch_name = arch_name+"."+NEW_ARCHIVE_TYPE
+        temp_dest = os.path.join(os.path.expanduser("~"), full_arch_name)
+        # check for creating an empty archive
+        if not self.path:
+            if not os.access(os.path.dirname(temp_dest), os.W_OK):
+                MyDialog("Error", "Cannnot create the file {}.".format(temp_dest), self)
+                return
+        # get a name for the temp archive ar_dest in the HOME directory
         if not self.path and os.path.exists(temp_dest):
             try:
-                os.remove(temp_dest)
+                aidx = 1
+                # os.remove(temp_dest)
+                while os.path.exists(temp_dest):
+                    arch_name = "ar_dest"+str(aidx)
+                    full_arch_name = arch_name+"."+NEW_ARCHIVE_TYPE
+                    temp_dest = os.path.join(os.path.expanduser("~"), full_arch_name)
+                    aidx += 1
             except:
-                MyDialog("Error", "Please, remove the file ar_dest.", self)
+                MyDialog("Error", "Please, remove the file\n{}.".format(temp_dest), self)
                 return
-        # create an empty archive
-        if not self.path:
-            if os.access(os.path.dirname(temp_dest), os.W_OK):
-                try:
-                    os.system('7z a {} -- " "'.format(temp_dest))
-                    self.path = temp_dest
-                except Exception as E:
-                    MyDialog("Error", "Cannnot create the file {}\n{}".format(temp_dest, str(E)), self)
-                    return
-            else:
-                MyDialog("Error", "Cannnot create the file {}\n{}".format(temp_dest, str(E)), self)
-                return
+        # # check for creating an empty archive
+        # if not self.path:
+            # if not os.access(os.path.dirname(temp_dest), os.W_OK):
+                # MyDialog("Error", "Cannnot create the file {}.".format(temp_dest), self)
+                # return
+                # try:
+                    # os.system('7z a {} -- " "'.format(temp_dest))
+                    # self.path = temp_dest
+                # except Exception as E:
+                    # MyDialog("Error", "Cannnot create the file {}\n{}".format(temp_dest, str(E)), self)
+                    # return
+            # else:
+                # MyDialog("Error", "Cannnot create the file {}\n{}".format(temp_dest, str(E)), self)
+                # return
         #
         fileList = self.getOpenFilesAndDirs()
         #
         ret = -1
         for ff in fileList:
-            # check il a file exists in the archive
-            fret = self.check_item_exist(ff)
-            #
-            if fret == 1:
-                dlg = message("The item\n{}\nexists in the archive.\nDo you wanto to proceed anyway?".format(os.path.basename(ff)), "OC")
-                # 0 cancel - 1 ok
-                retd = dlg.exec_()
-                if retd == 0:
-                    continue
-            elif fret == -2:
-                MyDialog("Error", "An error occoured.", self)
-                return
+            if self.path:
+                # check il a file exists in the archive
+                fret = self.check_item_exist(ff)
                 #
+                if fret == 1:
+                    dlg = message("The item\n{}\nexists in the archive.\nDo you wanto to proceed anyway?".format(os.path.basename(ff)), "OC")
+                    # 0 cancel - 1 ok
+                    retd = dlg.exec_()
+                    if retd == 0:
+                        continue
+                elif fret == -2:
+                    MyDialog("Error", "An error occoured.", self)
+                    return
+                #
+            self.path = temp_dest
             try:
                 if self.password:
                     ret = os.system("{} a {} -p'{}' {}".format(EXTRACTOR, self.path, self.password, ff))
@@ -968,9 +987,6 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     # 
     if len(sys.argv) == 2:
-        # dlg = message("No archive to open.", "O")
-        # dlg.exec_()
-        # sys.exit()
         path = os.path.abspath(sys.argv[1])
         if not os.path.exists(path):
             dlg = message("The archive\n {} \ndoesn't exist.".format(os.path.basename(path)), "O")
@@ -978,10 +994,6 @@ if __name__ == '__main__':
             sys.exit()
         #
         ret = test_archive(path)
-        # if ret == 0:
-            # dlg = message("Cannot open the archive: {}.".format(os.path.basename(path)), "O")
-            # dlg.exec_()
-            # sys.exit()
     else:
         path = ""
         ret = 1

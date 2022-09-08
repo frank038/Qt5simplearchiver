@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# version 0.8.2
+# version 0.9
 
-from PyQt5.QtWidgets import QDesktopWidget, qApp, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
+from PyQt5.QtWidgets import QDesktopWidget, qApp, QStackedWidget, QListView, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
 from PyQt5.QtGui import QIcon, QDrag, QPixmap
 from PyQt5.QtCore import QFileSystemWatcher, QTimer, QObject, QEvent, Qt, QUrl, QMimeData, QSize, QMimeDatabase, QByteArray, QDataStream, QIODevice
@@ -180,7 +180,10 @@ class Window(QWidget):
         # 2 yes - 1 no
         self.hasPassWord = hasPassWord
         self.password = ""
-        self.setWindowTitle("qt5archiver - {}".format(os.path.basename(self.path)))
+        if self.path:
+            self.setWindowTitle("qt5archiver - {}".format(os.path.basename(self.path)))
+        else:
+            self.setWindowTitle("qt5archiver")
         self.resize(int(WINW), int(WINH))
         if WINM == "True":
             self.showMaximized()
@@ -190,7 +193,7 @@ class Window(QWidget):
         if os.path.dirname(self.path):
             self.pdest = os.path.dirname(self.path)
         else:
-            self.pdest = os.getcwd()
+            self.pdest = os.path.expanduser("~")
         # main box
         self.vbox = QVBoxLayout()
         self.setLayout(self.vbox)
@@ -284,7 +287,7 @@ class Window(QWidget):
         gboxLayout.addWidget(extract_btn_f,0,2,1,1)
         # extract the whole archive
         extract_archive = QPushButton()
-        extract_archive.setIcon(QIcon("icons/full-archive.svg"))
+        extract_archive.setIcon(QIcon("icons/extraction.png"))
         extract_archive.setIconSize(QSize(48, 48))
         extract_archive.setToolTip("Extract the whole archive.")
         extract_archive.clicked.connect(lambda:self.fextract_btn("a"))
@@ -296,13 +299,27 @@ class Window(QWidget):
         folder_btn.setToolTip("Choose where to extract.")
         folder_btn.clicked.connect(self.folder_btnf)
         gboxLayout.addWidget(folder_btn,0,4,1,1)
+        # add item to the archive
+        add_btn = QPushButton()
+        add_btn.setIcon(QIcon("icons/full-archive.svg"))
+        add_btn.setIconSize(QSize(48, 48))
+        add_btn.setToolTip("Add to the archive.")
+        add_btn.clicked.connect(self.add_btnf)
+        gboxLayout.addWidget(add_btn,0,5,1,1)
+        # delete the selected items
+        del_btn = QPushButton()
+        del_btn.setIcon(QIcon("icons/delete.png"))
+        del_btn.setIconSize(QSize(48, 48))
+        del_btn.setToolTip("Delete the selected items.")
+        del_btn.clicked.connect(self.del_btnf)
+        gboxLayout.addWidget(del_btn,0,6,1,1)
         # exit button
         exit_btn = QPushButton()
         exit_btn.setIcon(QIcon.fromTheme("exit"))
         exit_btn.setIconSize(QSize(48, 48))
         exit_btn.setToolTip("Close")
         exit_btn.clicked.connect(lambda:self.on_close())
-        gboxLayout.addWidget(exit_btn,0,5,1,1)
+        gboxLayout.addWidget(exit_btn,0,7,1,1)
     
     
     def createLayout(self):
@@ -328,6 +345,146 @@ class Window(QWidget):
         self.pwd_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
         self.bobox.addWidget(self.pwd_label)
     
+    # really?
+    def getOpenFilesAndDirs(self, parent=None, caption='', directory='', filter='', initialFilter='', options=None):
+        def updateText():
+            # update the contents of the line edit widget with the selected files
+            selected = []
+            for index in view.selectionModel().selectedRows():
+                selected.append('"{}"'.format(index.data()))
+            lineEdit.setText(' '.join(selected))
+        #
+        dialog = QFileDialog(parent, windowTitle=caption)
+        dialog.setFileMode(dialog.ExistingFiles)
+        if options:
+            dialog.setOptions(options)
+        dialog.setOption(dialog.DontUseNativeDialog, True)
+        if directory:
+            dialog.setDirectory(directory)
+        if filter:
+            dialog.setNameFilter(filter)
+            if initialFilter:
+                dialog.selectNameFilter(initialFilter)
+        # by default, if a directory is opened in file listing mode, 
+        # QFileDialog.accept() shows the contents of that directory, but we 
+        # need to be able to "open" directories as we can do with files, so we 
+        # just override accept() with the default QDialog implementation which 
+        # will just return exec_()
+        dialog.accept = lambda: QDialog.accept(dialog)
+        # there are many item views in a non-native dialog, but the ones displaying 
+        # the actual contents are created inside a QStackedWidget; they are a 
+        # QTreeView and a QListView, and the tree is only used when the 
+        # viewMode is set to QFileDialog.Details, which is not this case
+        stackedWidget = dialog.findChild(QStackedWidget)
+        view = stackedWidget.findChild(QListView)
+        view.selectionModel().selectionChanged.connect(updateText)
+        lineEdit = dialog.findChild(QLineEdit)
+        # clear the line edit contents whenever the current directory changes
+        dialog.directoryEntered.connect(lambda: lineEdit.setText(''))
+        dialog.exec_()
+        return dialog.selectedFiles()
+    
+    # check file exists in the archive
+    def check_item_exist(self, item):
+        try:
+            byte_output = subprocess.check_output("{} l {} -p'{}' -bso0 -- {}".format(EXTRACTOR, self.path, self.password, os.path.basename(item)), shell=True)
+            str_output = byte_output.decode('utf-8')
+            llines = str_output.splitlines()
+            if self.getItems(llines):
+                return 1
+            else:
+                return 0
+        except:
+            return -2
+    
+    def add_btnf(self):
+        temp_dest = os.path.join(os.path.expanduser("~"), "ar_dest.zip")
+        # remove the temp archive HOME/ar_dest
+        if not self.path and os.path.exists(temp_dest):
+            try:
+                os.remove(temp_dest)
+            except:
+                MyDialog("Error", "Please, remove the file ar_dest.", self)
+                return
+        # create an empty archive
+        if not self.path:
+            if os.access(os.path.dirname(temp_dest), os.W_OK):
+                try:
+                    os.system('7z a {} -- " "'.format(temp_dest))
+                    self.path = temp_dest
+                except Exception as E:
+                    MyDialog("Error", "Cannnot create the file {}\n{}".format(temp_dest, str(E)), self)
+                    return
+            else:
+                MyDialog("Error", "Cannnot create the file {}\n{}".format(temp_dest, str(E)), self)
+                return
+        #
+        fileList = self.getOpenFilesAndDirs()
+        #
+        ret = -1
+        for ff in fileList:
+            # check il a file exists in the archive
+            fret = self.check_item_exist(ff)
+            #
+            if fret == 1:
+                dlg = message("The item\n{}\nexists in the archive.\nDo you wanto to proceed anyway?".format(os.path.basename(ff)), "OC")
+                # 0 cancel - 1 ok
+                retd = dlg.exec_()
+                if retd == 0:
+                    continue
+            elif fret == -2:
+                MyDialog("Error", "An error occoured.", self)
+                return
+                #
+            try:
+                if self.password:
+                    ret = os.system("{} a {} -p'{}' {}".format(EXTRACTOR, self.path, self.password, ff))
+                else:
+                    ret = os.system("{} a {} {}".format(EXTRACTOR, self.path, ff))
+                if ret == 0:
+                    dlg = message("Added.", "O")
+                    retd = dlg.exec_()
+                else:
+                    dlg = message("Error\n{}.\nCheck the archive.".format(ret), "O")
+                    retd = dlg.exec_()
+                    break
+                    return
+            except Exception as E:
+                MyDialog("Error", str(E), self)
+        #
+        # set the label
+        if self.path:
+            self.setWindowTitle("qt5archiver - {}".format(os.path.basename(self.path)))
+            self.bottom_label.setText("Extract to: {}".format(os.path.basename(self.pdest)))
+            self.bottom_label.setToolTip(self.pdest)
+        #
+        # clear the treeview
+        self.treeWidget.clear()
+        # reload the treeview
+        self.populateTree()
+        
+    def del_btnf(self):
+        full_list = []
+        for i in range(0, len(self.treeWidget.selectedIndexes()), 3):
+            iit = self.treeWidget.selectedIndexes()[i]
+            full_list.append("/".join(self.get_path(iit)))
+        #
+        dlg = message("Do you want to remove the items?", "OC")
+        retd = dlg.exec_()
+        if retd:
+            # 7z d example.zip *.bak -r
+            for ff in full_list:
+                try:
+                    ret = os.system("{} d {} {}".format(EXTRACTOR, self.path, ff))
+                    if ret != 0:
+                        MyDialog("Info", "Something happened while removing:\ncode {}".format(ret), self)
+                except Exception as E:
+                    MyDialog("Error", str(E), self)
+            #
+            # clear the treeview
+            self.treeWidget.clear()
+            # reload the treeview
+            self.populateTree()
     
     def fsub_btn(self):
         if self.sender().isChecked():
@@ -404,52 +561,44 @@ class Window(QWidget):
     
     # fill the treewidget
     def populateTree(self):
-        # get the password
-        if self.hasPassWord == 2:
-            if not self.password:
-                self.password = passWord(self.path).arpass
-                if not self.password:
-                    MyDialog("Info", "Exiting...", self)
-                    sys.exit()
-                    return
-        #
         itemList = []
-        if USE_LIBARCHIVE == 1:
-            # ['name', '+' or '-', 'size', 'date']
-            try:
-                with libarchive.file_reader(self.path) as file_archive:
-                    for item_entry in file_archive:
-                        if item_entry.isdir:
-                            item_type = "+"
-                        else:
-                            item_type = "-"
-                        item_mtime_temp = item_entry.mtime
-                        item_mtime = datetime.fromtimestamp(item_mtime_temp).strftime('%Y-%m-%d %H:%M:%S')
-                        item_name = item_entry.name
-                        if item_type == "+" and item_name[-1] == "/":
-                            item_name = item_name[:-1]
-                        itemList.append([item_name, item_type, str(item_entry.size), item_mtime])
-            except Exception as E:
-                MyDialog("Error", str(E), self)
-                # set the label
-                self.bottom_label.setText("Error: {}".format(os.path.basename(self.path)))
-                self.bottom_label.setToolTip(self.pdest)
-                return
-        else:
-            try:
-                byte_output=subprocess.check_output('7z l "{}" -p"{}"'.format(self.path, self.password), shell=True)
-            except:
-                self.bottom_label.setText("Error.")
-                return
-            #
-            str_output = byte_output.decode('utf-8')
-            llines = str_output.splitlines()
-            try:
-                itemList = self.getItems(llines)
-            except Exception as E:
-                MyDialog("Error", str(E)+"\nor unsupported archive.", self)
-                self.open_with_error = 1
-                return
+        if self.path:
+            if USE_LIBARCHIVE == 1:
+                # ['name', '+' or '-', 'size', 'date']
+                try:
+                    with libarchive.file_reader(self.path) as file_archive:
+                        for item_entry in file_archive:
+                            if item_entry.isdir:
+                                item_type = "+"
+                            else:
+                                item_type = "-"
+                            item_mtime_temp = item_entry.mtime
+                            item_mtime = datetime.fromtimestamp(item_mtime_temp).strftime('%Y-%m-%d %H:%M:%S')
+                            item_name = item_entry.name
+                            if item_type == "+" and item_name[-1] == "/":
+                                item_name = item_name[:-1]
+                            itemList.append([item_name, item_type, str(item_entry.size), item_mtime])
+                except Exception as E:
+                    MyDialog("Error", str(E), self)
+                    # set the label
+                    self.bottom_label.setText("Error: {}".format(os.path.basename(self.path)))
+                    self.bottom_label.setToolTip(self.pdest)
+                    return
+            else:
+                try:
+                    byte_output=subprocess.check_output('7z l "{}" -p"{}"'.format(self.path, self.password), shell=True)
+                except:
+                    self.bottom_label.setText("Error.")
+                    return
+                #
+                str_output = byte_output.decode('utf-8')
+                llines = str_output.splitlines()
+                try:
+                    itemList = self.getItems(llines)
+                except Exception as E:
+                    MyDialog("Error", str(E)+"\nor unsupported archive.", self)
+                    self.open_with_error = 1
+                    return
         #
         ##############################
         for iitem in itemList:
@@ -510,8 +659,11 @@ class Window(QWidget):
         self.treeWidget.setSortingEnabled(True)
         self.treeWidget.sortByColumn(0, Qt.AscendingOrder)
         # set the label
-        self.bottom_label.setText("Extract to: {}".format(os.path.basename(self.pdest)))
-        self.bottom_label.setToolTip(self.pdest)
+        if self.path:
+            self.bottom_label.setText("Extract to: {}".format(os.path.basename(self.pdest)))
+            self.bottom_label.setToolTip(self.pdest)
+        else:
+            self.bottom_label.setText("")
         #
         if self.hasPassWord == 2:
             self.pwd_label.setPixmap(QPixmap("icons/passwordedn.svg"))
@@ -815,21 +967,24 @@ if __name__ == '__main__':
     #
     app = QApplication(sys.argv)
     # 
-    if len(sys.argv) == 1:
-        dlg = message("No archive to open.", "O")
-        dlg.exec_()
-        sys.exit()
-    path = os.path.abspath(sys.argv[1])
-    if not os.path.exists(path):
-        dlg = message("The archive\n {} \ndoesn't exist.".format(os.path.basename(path)), "O")
-        dlg.exec_()
-        sys.exit()
-    #
-    ret = test_archive(path)
-    # if ret == 0:
-        # dlg = message("Cannot open the archive: {}.".format(os.path.basename(path)), "O")
+    if len(sys.argv) == 2:
+        # dlg = message("No archive to open.", "O")
         # dlg.exec_()
         # sys.exit()
+        path = os.path.abspath(sys.argv[1])
+        if not os.path.exists(path):
+            dlg = message("The archive\n {} \ndoesn't exist.".format(os.path.basename(path)), "O")
+            dlg.exec_()
+            sys.exit()
+        #
+        ret = test_archive(path)
+        # if ret == 0:
+            # dlg = message("Cannot open the archive: {}.".format(os.path.basename(path)), "O")
+            # dlg.exec_()
+            # sys.exit()
+    else:
+        path = ""
+        ret = 1
     #
     window = Window(path, ret)
     window.show()

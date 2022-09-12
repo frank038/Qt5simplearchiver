@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.9.1
+# version 0.9.2
 
 from PyQt5.QtWidgets import QDesktopWidget, qApp, QStackedWidget, QListView, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
@@ -10,7 +10,7 @@ import os, shutil
 from xdg.BaseDirectory import *
 from xdg.DesktopEntry import *
 
-CURRENT_PROG_DIR = os.getcwd()
+CURRENT_PROG_DIR = os.path.dirname(os.path.realpath(sys.argv[0]))
 NEW_ARCHIVE_TYPE = "zip"
 
 # use libarchive for reading: 0 use 7z - 1 use libarchive
@@ -580,6 +580,10 @@ class Window(QWidget):
     
     # fill the treewidget
     def populateTree(self):
+        if self.hasPassWord == 2:
+            if not self.password:
+                self.password = passWord(self.path).arpass
+        #
         itemList = []
         if self.path:
             if USE_LIBARCHIVE == 1:
@@ -981,7 +985,7 @@ if __name__ == '__main__':
             # should be password protected
             return 2
         # is password protected
-        if edata.decode() == None:
+        if edata == None or edata.decode() == None:
             return 2
     #
     app = QApplication(sys.argv)

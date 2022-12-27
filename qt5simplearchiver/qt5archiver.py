@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-# version 0.9.2
+# version 0.9.3
 
 from PyQt5.QtWidgets import QDesktopWidget, qApp, QStackedWidget, QListView, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
-from PyQt5.QtGui import QIcon, QDrag, QPixmap
-from PyQt5.QtCore import QFileSystemWatcher, QTimer, QObject, QEvent, Qt, QUrl, QMimeData, QSize, QMimeDatabase, QByteArray, QDataStream, QIODevice
+from PyQt5.QtGui import QIcon, QDrag, QPixmap, QClipboard
+# from PyQt5.QtCore import QFileSystemWatcher, QTimer, QObject, QEvent, Qt, QUrl, QMimeData, QSize, QMimeDatabase, QByteArray, QDataStream, QIODevice
+from PyQt5.QtCore import QTimer, QObject, QEvent, Qt, QUrl, QMimeData, QSize, QMimeDatabase, QByteArray, QDataStream, QIODevice
 import subprocess
 import os, shutil
 from xdg.BaseDirectory import *
@@ -62,15 +63,15 @@ except:
     fm = firstMessage("Error", "The file winsize.cfg cannot be read.")
     sys.exit(app.exec_())
 
-def create_where_to_extract():
-    try:
-        ifile = open(os.path.join(CURRENT_PROG_DIR, "where_to_extract"), "w")
-        ifile.close()
-    except:
-        app = QApplication(sys.argv)
-        fm = firstMessage("Error", "The file where_to_extract cannot be written.")
-        sys.exit(app.exec_())
-create_where_to_extract()
+# def create_where_to_extract():
+    # try:
+        # ifile = open(os.path.join(CURRENT_PROG_DIR, "where_to_extract"), "w")
+        # ifile.close()
+    # except:
+        # app = QApplication(sys.argv)
+        # fm = firstMessage("Error", "The file where_to_extract cannot be written.")
+        # sys.exit(app.exec_())
+# create_where_to_extract()
 
 # 
 DRAG_SUCCESS = 0
@@ -89,7 +90,8 @@ class TreeWidget(QTreeWidget):
         # reset
         self.parent.in_extraction = 0
         # send the working directory of this program - needed for where_to_extract
-        drag_data = CURRENT_PROG_DIR
+        # drag_data = CURRENT_PROG_DIR
+        drag_data = "R"
         drag = QDrag(self)
         mimedata = QMimeData()
         data = QByteArray()
@@ -110,7 +112,6 @@ class TreeWidget(QTreeWidget):
             DRAG_SUCCESS = ret
         #
         return
-        
     
     # get the full archive path of the selected item
     def get_path(self, item):
@@ -207,32 +208,48 @@ class Window(QWidget):
         #
         # self.show()
         # extration type: x with folders - e without folders
-        self. etype = "e"
+        # self. etype = "e"
+        self. etype = "x"
         #
         self.selected_item = None
         #
         self.extraction_dest = None
         self.in_extraction = 0
-        # check for changes in the directory
-        fPath = [os.path.join(CURRENT_PROG_DIR,"where_to_extract")]
-        self.fileSystemWatcher = QFileSystemWatcher(fPath)
-        self.fileSystemWatcher.fileChanged.connect(self.checkDest)
-    
-    
-    def checkDest(self, nfile):
-        if self.in_extraction:
-            return
+        # # check for changes in the directory
+        # fPath = [os.path.join(CURRENT_PROG_DIR,"where_to_extract")]
+        # self.fileSystemWatcher = QFileSystemWatcher(fPath)
+        # self.fileSystemWatcher.fileChanged.connect(self.checkDest)
         #
-        if DRAG_SUCCESS:
-            if os.path.exists(nfile):
-                self.in_extraction = 1
-                with open(os.path.join(CURRENT_PROG_DIR, "where_to_extract"), "r") as efile:
-                    self.extraction_dest = efile.readline().strip()
-                if not self.extraction_dest:
-                    MyDialog("Error", "Destination missed.", self)
-                    return
-                #
-                self.fextract_btn()
+        QApplication.clipboard().changed.connect(self.clipboardChanged)
+    
+    def clipboardChanged(self, mode):
+        if QApplication.clipboard().mimeData().hasFormat("application/x-customqt5archiver"):
+            drop_data_temp = QApplication.clipboard().mimeData().data("application/x-customqt5archiver").data()
+            drop_data = drop_data_temp.decode(encoding="utf-8").split("\n")
+            # success - destination path
+            _is_success = drop_data[0]
+            global DRAG_SUCCESS
+            if _is_success == "A":
+                if DRAG_SUCCESS:
+                    self.extraction_dest = drop_data[1]
+                    self.fextract_btn()
+            elif _is_success == "E":
+                DRAG_SUCCESS = 0
+        
+    # def checkDest(self, nfile):
+        # if self.in_extraction:
+            # return
+        # #
+        # if DRAG_SUCCESS:
+            # if os.path.exists(nfile):
+                # self.in_extraction = 1
+                # with open(os.path.join(CURRENT_PROG_DIR, "where_to_extract"), "r") as efile:
+                    # self.extraction_dest = efile.readline().strip()
+                # if not self.extraction_dest:
+                    # MyDialog("Error", "Destination missed.", self)
+                    # return
+                # #
+                # self.fextract_btn()
         
     #
     def eventFilter(self, obj, event):
@@ -277,7 +294,8 @@ class Window(QWidget):
         self.sub_btn_f.setCheckable(True)
         self.sub_btn_f.setIcon(QIcon("icons/alternate.svg"))
         self.sub_btn_f.setIconSize(QSize(48, 48))
-        self.sub_btn_f.setToolTip("Extraction without folder(s).")
+        # self.sub_btn_f.setToolTip("Extraction without folder(s).")
+        self.sub_btn_f.setToolTip("Extraction with folder(s).")
         self.sub_btn_f.clicked.connect(self.fsub_btn)
         gboxLayout.addWidget(self.sub_btn_f,0,1,1,1)
         # extract the item
@@ -506,7 +524,7 @@ class Window(QWidget):
             self.populateTree()
     
     def fsub_btn(self):
-        if self.sender().isChecked():
+        if not self.sender().isChecked():
             # set etype x
             self.etype = "x"
             self.sender().setToolTip("Extraction with folder(s).")
@@ -729,14 +747,14 @@ class Window(QWidget):
             arcExtract(self.path, full_list, self.etype, self.pdest, self.password)
         #
         self.extraction_dest = None
-        # reset
-        try:
-            ifile = open(os.path.join(CURRENT_PROG_DIR, "where_to_extract"), "w")
-            ifile.close()
-        except Exception as E:
-            dlg = message("Error:\n{}".format(str(E)), "O")
-            dlg.exec_()
-            return
+        # # reset
+        # try:
+            # ifile = open(os.path.join(CURRENT_PROG_DIR, "where_to_extract"), "w")
+            # ifile.close()
+        # except Exception as E:
+            # dlg = message("Error:\n{}".format(str(E)), "O")
+            # dlg.exec_()
+            # return
         
     
     # get the path of the selected item
@@ -976,11 +994,11 @@ class MyDialog(QMessageBox):
 if __name__ == '__main__':
     
     # check it the archive is password protected
-    def test_archive(path):
+    def test_archive(dpath):
         edata = None
         try:
             # check with a random password
-            edata = subprocess.check_output('{} t -p"{}" -bso0 -- "{}"'.format(EXTRACTOR, "pw@#567uryt@#99fegr§", path), shell=True)
+            edata = subprocess.check_output('{} t -p"{}" -bso0 -- "{}"'.format(EXTRACTOR, "pw@#567uryt@#99fegr§", dpath), shell=True)
         except Exception as E:
             # should be password protected
             return 2
@@ -990,6 +1008,9 @@ if __name__ == '__main__':
     #
     app = QApplication(sys.argv)
     # 
+    path = ""
+    ret = 1
+    #
     if len(sys.argv) == 2:
         path = os.path.abspath(sys.argv[1])
         if not os.path.exists(path):
@@ -997,10 +1018,12 @@ if __name__ == '__main__':
             dlg.exec_()
             sys.exit()
         #
-        ret = test_archive(path)
-    else:
-        path = ""
-        ret = 1
+        if os.path.isfile(path) and not os.path.islink(path) and os.access(path, os.R_OK):
+            ret = test_archive(path)
+        else:
+            dlg = message("The archive\n\n   {}   \n\ndoesn't exist\nor cannot be read.".format(os.path.basename(path)), "O")
+            dlg.exec_()
+            sys.exit()
     #
     window = Window(path, ret)
     window.show()

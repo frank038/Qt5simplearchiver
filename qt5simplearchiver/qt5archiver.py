@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# version 0.9.3
+# version 0.9.4
 
 from PyQt5.QtWidgets import QDesktopWidget, qApp, QStackedWidget, QListView, QSizePolicy, QBoxLayout, QHBoxLayout, QLineEdit, QCheckBox, QFileDialog, QDialogButtonBox, QApplication, QWidget, QHeaderView, QTreeWidget, QTreeWidgetItem, QPushButton, QDialog, QVBoxLayout, QGridLayout, QLabel, QMessageBox
 import sys
@@ -142,19 +142,34 @@ class arcExtract():
     def fextract(self):
         ret = -5
         #
-        if self.etype in ["e", "x"]:
-            retd = 1
-            for iitem in self.elist:
-                # if os.path.isdir(os.path.join(self.edest, iitem)):
-                    # continue
-                if os.path.exists(os.path.join(self.edest, iitem)):
+        # if self.etype in ["e", "x"]:
+        if self.etype != "a":
+            for _item in self.elist:
+                retd = 1
+                itype = _item[0]
+                iitem = _item[1]
+                # for iitem in self.elist:
+                    # # if os.path.isdir(os.path.join(self.edest, iitem)):
+                        # # continue
+                #
+                if self.etype == "e":
+                    ipath = os.path.join(self.edest, os.path.basename(iitem))
+                elif self.etype == "x":
+                    ipath = os.path.join(self.edest, iitem)
+                # if os.path.exists(os.path.join(self.edest, iitem)):
+                if os.path.exists(ipath):
                     dlg = message("Some items already exist.\nOverwrite?", "OC")
                     retd = dlg.exec_()
-                    break
-            if retd:
-                for iitem in self.elist:
-                    ret = os.system("{0} {1} '-i!{2}' '{3}' -p'{4}' -y -o'{5}' 1>/dev/null".format(EXTRACTOR, self.etype, iitem, self.ePath, self.password, self.edest))
-        elif self.etype == "a":
+                        # break
+                if retd:
+                    # for iitem in self.elist:
+                        # ret = os.system("{0} {1} '-i!{2}' '{3}' -p'{4}' -y -o'{5}' 1>/dev/null".format(EXTRACTOR, self.etype, iitem, self.ePath, self.password, self.edest))
+                        _etype = self.etype
+                        if itype == "d":
+                            _etype = "x"
+                        ret = os.system("{0} {1} '-i!{2}' '{3}' -p'{4}' -y -o'{5}' 1>/dev/null".format(EXTRACTOR, _etype, iitem, self.ePath, self.password, self.edest))
+        # elif self.etype == "a":
+        else:
             # 0 with no errors but without verifying
             ret = os.system("{0} x '{1}' -p'{2}' -y -o'{3}' 1>/dev/null".format(EXTRACTOR, self.ePath, self.password, self.edest))
         ### exit codes
@@ -171,6 +186,39 @@ class arcExtract():
         elif ret != -5:
             dlg = message("Error:\n{}".format(ret), "O")
             dlg.exec_()
+    
+    # def fextract(self):
+        # ret = -5
+        # #
+        # if self.etype in ["e", "x"]:
+            # retd = 1
+            # for iitem in self.elist:
+                # # if os.path.isdir(os.path.join(self.edest, iitem)):
+                    # # continue
+                # if os.path.exists(os.path.join(self.edest, iitem)):
+                    # dlg = message("Some items already exist.\nOverwrite?", "OC")
+                    # retd = dlg.exec_()
+                    # break
+            # if retd:
+                # for iitem in self.elist:
+                    # ret = os.system("{0} {1} '-i!{2}' '{3}' -p'{4}' -y -o'{5}' 1>/dev/null".format(EXTRACTOR, self.etype, iitem, self.ePath, self.password, self.edest))
+        # elif self.etype == "a":
+            # # 0 with no errors but without verifying
+            # ret = os.system("{0} x '{1}' -p'{2}' -y -o'{3}' 1>/dev/null".format(EXTRACTOR, self.ePath, self.password, self.edest))
+        # ### exit codes
+        # # 0 No error
+        # # 1 Warning (Non fatal error(s)). For example, one or more files were locked by some other application, so they were not compressed.
+        # # 2 Fatal error
+        # # 7 Command line error
+        # # 8 Not enough memory for operation
+        # # 255 User stopped the process
+        # if ret == 0:
+            # # check it the base folder exists
+            # dlg = message("Extracted.", "O")
+            # retd = dlg.exec_()
+        # elif ret != -5:
+            # dlg = message("Error:\n{}".format(ret), "O")
+            # dlg.exec_()
    
 
 class Window(QWidget):
@@ -235,6 +283,7 @@ class Window(QWidget):
                     self.fextract_btn()
             elif _is_success == "E":
                 DRAG_SUCCESS = 0
+                MyDialog("Error", "Not allowed.", self)
         
     # def checkDest(self, nfile):
         # if self.in_extraction:
@@ -310,7 +359,8 @@ class Window(QWidget):
         extract_archive.setIcon(QIcon("icons/extraction.png"))
         extract_archive.setIconSize(QSize(48, 48))
         extract_archive.setToolTip("Extract the whole archive.")
-        extract_archive.clicked.connect(lambda:self.fextract_btn("a"))
+        # extract_archive.clicked.connect(lambda:self.fextract_btn("a"))
+        extract_archive.clicked.connect(self.fextract_btn_all)
         gboxLayout.addWidget(extract_archive,0,3,1,1)
         # extract in the folder
         folder_btn = QPushButton()
@@ -417,6 +467,7 @@ class Window(QWidget):
         except:
             return -2
     
+    # 
     def add_btnf(self):
         arch_name = "ar_dest"
         full_arch_name = arch_name+"."+NEW_ARCHIVE_TYPE
@@ -721,7 +772,8 @@ class Window(QWidget):
     
     
     # with folders (x) - without folders (e) - extract all (a)
-    def fextract_btn(self, eftype=None):
+    # def fextract_btn(self, eftype=None):
+    def fextract_btn(self):
         if self.open_with_error == 1:
             dlg = message("Error on opening.", "O")
             dlg.exec_()
@@ -732,21 +784,33 @@ class Window(QWidget):
             dlg.exec_()
             return
         #
-        if eftype:
-            self.etype = eftype
-            self.sub_btn_f.setChecked(False)
+        # if eftype:
+            # self.etype = eftype
+            # self.sub_btn_f.setChecked(False)
         #
         full_list = []
         for i in range(0, len(self.treeWidget.selectedIndexes()), 3):
             iit = self.treeWidget.selectedIndexes()[i]
-            full_list.append("/".join(self.get_path(iit)))
+            # full_list.append("/".join(self.get_path(iit)))
+            #
+            idx = self.treeWidget.itemFromIndex(iit)
+            item_size = idx.data(1, 0)
+            #
+            itype = "f"
+            if item_size == "":
+                itype = "d"
+            full_list.append([itype, "/".join(self.get_path(iit))])
+        #
         # archive path - items to extract - type of extraction - where to extract - password
         if self.extraction_dest:
             arcExtract(self.path, full_list, self.etype, self.extraction_dest, self.password)
         else:
             arcExtract(self.path, full_list, self.etype, self.pdest, self.password)
         #
+        # reset
         self.extraction_dest = None
+        global DRAG_SUCCESS
+        DRAG_SUCCESS = 0
         # # reset
         # try:
             # ifile = open(os.path.join(CURRENT_PROG_DIR, "where_to_extract"), "w")
@@ -756,6 +820,9 @@ class Window(QWidget):
             # dlg.exec_()
             # return
         
+    def fextract_btn_all(self):
+        self.sub_btn_f.setChecked(False)
+        arcExtract(self.path, [], "a", self.pdest, self.password)
     
     # get the path of the selected item
     def get_path(self, item):

@@ -19,4 +19,4 @@ Features:
 - items can be added and deleted from the archive
 - it is possible to create a completely new archive.
 
-Limitations: Drag and drop, for item extraction, only works with my file manager SimpleFM and my Qt5desktop program because of a custom mimetype. By default the files are extracted with the parent folders; a button in the toolbar can change this behaviour. The files to open/read will be extracted in the /tmp directory first. Folder cannot be opened by double clicking. Icons: only folder for folders and file for not folders.
+Limitations: Drag and drop, for item extraction, only works with my file manager SimpleFM program because of a custom mimetype. By default the files are extracted with the parent folders; a button in the toolbar can change this behaviour. The files to open/read will be extracted in the /tmp directory first. Folder cannot be opened by double clicking. Icons: only folder for folders and file for not folders.
